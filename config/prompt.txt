@@ -1,0 +1,1 @@
+Identify our High-priority accounts in poor health, worst first, considering SLA tier, recent product usage, contract renewal timing, and open urgent support tickets. For each, show account name, SLA level, health score, health status, and urgent ticket count. For any account with CRITICAL status, confirm its review eligibility and state the reason. Return up to 50 rows.

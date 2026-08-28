@@ -1,0 +1,39 @@
+Benchmarks vs docs and research/
+
+data-load/
+
+# Env / secrets. The redacted template is published; real .env is not.
+.env
+.env.*
+!.env.example
+*[Ss]ensitive*
+*[Cc]reds*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Run logs (regenerated each run)
+*.log
+results/*.log
+
+# Raw run artifacts -- 423 JSON files with internal MCP endpoint IDs; not published.
+# Aggregated outputs (matrix.csv, runs_raw.csv, charts/, PDFs) are committed.
+results/matrix/
+results/judge/
+results/smoke/
+results/_compare_pre_partialcredit/
+
+# Calibration: generated packet/key/template are regenerable (calibrate_sample.py).
+calibration/
+
+# OS
+.DS_Store
+Thumbs.db

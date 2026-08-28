@@ -1,0 +1,1 @@
+Queue a manual review for every High-priority account that is CRITICAL and eligible for review, recording the reason for each. Do not queue any account that isn't both CRITICAL and eligible, and don't queue the same account more than once.

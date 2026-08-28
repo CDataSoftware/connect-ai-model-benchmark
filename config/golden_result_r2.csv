@@ -1,0 +1,45 @@
+AccountName,SLA_Level,Health_Score_100,Health_Status,Sessions_Cur90,Sessions_Prev90,Usage_Trend
+GraniteData Corp,Silver,25,CRITICAL,706,1087,DECLINING
+Standard Logic Group,Bronze,25,CRITICAL,354,839,DECLINING
+SterlingCompute Holdings,Silver,25,CRITICAL,262,1396,DECLINING
+DeltaCloud Group,Gold,30,CRITICAL,672,958,DECLINING
+DeltaLogic LLC,Gold,30,CRITICAL,947,1623,DECLINING
+PioneerDynamics Partners,Bronze,30,CRITICAL,436,786,DECLINING
+VertexWorks Systems,Gold,30,CRITICAL,110,721,DECLINING
+KeystoneAnalytics LLC,Bronze,35,CRITICAL,345,895,DECLINING
+KeystoneMicro Global,Bronze,35,CRITICAL,194,941,DECLINING
+SterlingVector Technologies,Bronze,35,CRITICAL,562,972,DECLINING
+Allied Wave Co,Silver,40,AT_RISK,618,1127,DECLINING
+NovaTech Co,Silver,40,AT_RISK,577,932,DECLINING
+Pan-Atlantic Digital LLC,Bronze,40,AT_RISK,608,1050,DECLINING
+SterlingWave Inc,Gold,40,AT_RISK,710,1047,DECLINING
+VertexFabric Systems,Silver,40,AT_RISK,879,1527,DECLINING
+CedarVector LLC,Bronze,45,AT_RISK,473,889,DECLINING
+CobaltGrid Technologies,Bronze,45,AT_RISK,154,505,DECLINING
+Consolidated Stream Global,Bronze,45,AT_RISK,260,653,DECLINING
+Meridian Data Partners,Silver,45,AT_RISK,466,967,DECLINING
+SilverFabric Systems,Silver,45,AT_RISK,162,302,DECLINING
+SilverMicro Global,Bronze,45,AT_RISK,648,846,DECLINING
+VanguardSignal Corp,Silver,45,AT_RISK,960,1305,DECLINING
+CascadeCore Global,Silver,50,AT_RISK,802,1296,DECLINING
+CascadeMicro Corp,Silver,50,AT_RISK,804,1040,DECLINING
+DeltaLink Systems,Gold,50,AT_RISK,1194,1906,DECLINING
+DeltaMicro Solutions,Bronze,50,AT_RISK,579,1819,DECLINING
+EmeraldNetworks Co,Silver,50,AT_RISK,411,541,DECLINING
+EmeraldSoft Global,Bronze,50,AT_RISK,99,235,DECLINING
+GraniteData Holdings,Silver,50,AT_RISK,184,934,DECLINING
+KeystoneMetric Holdings,Silver,50,AT_RISK,502,1364,DECLINING
+SilverCloud Inc,Silver,50,AT_RISK,609,1345,DECLINING
+Allied Digital Partners,Gold,55,AT_RISK,499,982,DECLINING
+AtlasCloud Global,Gold,55,AT_RISK,378,562,DECLINING
+AtlasFabric Systems,Gold,55,AT_RISK,478,1659,DECLINING
+AuroraCompute Solutions,Gold,55,AT_RISK,143,492,DECLINING
+HarborWave Global,Gold,55,AT_RISK,366,832,DECLINING
+KeystoneDynamics Partners,Platinum,55,AT_RISK,326,739,DECLINING
+LarkMicro Corp,Bronze,55,AT_RISK,558,736,DECLINING
+OrchardMicro Technologies,Silver,55,AT_RISK,316,495,DECLINING
+PioneerAnalytics Systems,Bronze,55,AT_RISK,302,804,DECLINING
+RidgeStream Partners,Gold,55,AT_RISK,158,600,DECLINING
+SterlingDynamics LLC,Gold,55,AT_RISK,651,1674,DECLINING
+SummitLink Global,Gold,55,AT_RISK,31,418,DECLINING
+TitanSphere Holdings,Silver,55,AT_RISK,239,439,DECLINING

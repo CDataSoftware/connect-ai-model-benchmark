@@ -1,0 +1,75 @@
+{
+  "model": "gemini-3.5-flash",
+  "provider": "google",
+  "condition": "optimized",
+  "run": 1,
+  "ts": "2026-07-17T11:37:15",
+  "uncached_input": 8577,
+  "cached_input": 0,
+  "output": 1592,
+  "reasoning": 4464,
+  "raw_total": 14633,
+  "tool_calls": 3,
+  "turns": 3,
+  "hit_turn_cap": false,
+  "stop_reason": "FinishReason.STOP",
+  "model_time_s": 19.13,
+  "mcp_time_s": 16.86,
+  "wall_s": 35.99,
+  "trace": [
+    {
+      "event": "tools_listed",
+      "count": 4,
+      "names": [
+        "get_accounts_by_health_status",
+        "get_account_score_breakdown",
+        "get_portfolio_health_summary",
+        "check_review_eligibility"
+      ]
+    },
+    {
+      "turn": 1,
+      "tool": "get_portfolio_health_summary",
+      "args": {},
+      "result_chars": 1046,
+      "mcp_s": 5.51
+    },
+    {
+      "turn": 2,
+      "tool": "get_accounts_by_health_status",
+      "args": {
+        "status": "CRITICAL",
+        "priority": "High"
+      },
+      "result_chars": 6570,
+      "mcp_s": 4.91
+    },
+    {
+      "turn": 2,
+      "tool": "get_accounts_by_health_status",
+      "args": {
+        "status": "AT_RISK",
+        "priority": "High"
+      },
+      "result_chars": 8015,
+      "mcp_s": 6.44
+    }
+  ],
+  "final_answer": "Here are our High-priority accounts in poor health (Critical and At Risk status), ordered worst first (by health score ascending). For all accounts with **CRITICAL** status, their manual review eligibility and the corresponding reason are confirmed.\n\n| Account Name | SLA Level | Health Score | Health Status | Urgent Ticket Count | Review Eligibility | Eligibility Reason |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| NorthStream Industries | Bronze | 20 | CRITICAL | 9 | ELIGIBLE | Renewal within 90 days |\n| EmeraldMicro Solutions | Bronze | 20 | CRITICAL | 10 | ELIGIBLE | Renewal within 90 days |\n| PioneerSignal Partners | Bronze | 25 | CRITICAL | 4 | NOT ELIGIBLE | No escalation trigger met |\n| Standard Logic Group | Bronze | 25 | CRITICAL | 4 | NOT ELIGIBLE | No escalation trigger met |\n| CopperNetworks Technologies | Silver | 25 | CRITICAL | 12 | ELIGIBLE | ACV above review threshold |\n| CascadeLabs LLC | Silver | 25 | CRITICAL | 13 | ELIGIBLE | ACV above review threshold |\n| SterlingCompute Holdings | Silver | 25 | CRITICAL | 8 | ELIGIBLE | ACV above review threshold |\n| GraniteData Corp | Silver | 25 | CRITICAL | 13 | ELIGIBLE | Renewal within 90 days |\n| BlueGrid Holdings | Silver | 25 | CRITICAL | 12 | ELIGIBLE | Renewal within 90 days |\n| PioneerDynamics Partners | Bronze | 30 | CRITICAL | 3 | ELIGIBLE | ACV above review threshold |\n| GraniteByte Industries | Gold | 30 | CRITICAL | 6 | ELIGIBLE | Renewal within 90 days |\n| ApexData Global | Silver | 30 | CRITICAL | 4 | ELIGIBLE | ACV above review threshold |\n| VertexWorks Systems | Gold | 30 | CRITICAL | 11 | ELIGIBLE | High urgent ticket volume |\n| DeltaCloud Group | Gold | 30 | CRITICAL | 14 | ELIGIBLE | ACV above review threshold |\n| DeltaLogic LLC | Gold | 30 | CRITICAL | 7 | ELIGIBLE | Renewal within 90 days |\n| CedarLink Inc | Silver | 30 | CRITICAL | 4 | ELIGIBLE | ACV above review threshold |\n| KeystoneAnalytics LLC | Bronze | 35 | CRITICAL | 10 | ELIGIBLE | Renewal within 90 days |\n| Helios Fabric Co | Bronze | 35 | CRITICAL | 2 | NOT ELIGIBLE | No escalation trigger met |\n| SummitSphere Group | Bronze | 35 | CRITICAL | 2 | NOT ELIGIBLE | No escalation trigger met |\n| GraniteCompute Technologies | Bronze | 35 | CRITICAL | 2 | NOT ELIGIBLE | No escalation trigger met |\n| AtlasNetworks Partners | Platinum | 35 | CRITICAL | 10 | ELIGIBLE | ACV above review threshold |\n| BeaconPulse Industries | Silver | 35 | CRITICAL | 3 | ELIGIBLE | Renewal within 90 days |\n| SterlingVector Technologies | Bronze | 35 | CRITICAL | 7 | ELIGIBLE | Renewal within 90 days |\n| GraniteLoop Group | Silver | 35 | CRITICAL | 3 | ELIGIBLE | ACV above review threshold |\n| VanguardStream Solutions | Platinum | 35 | CRITICAL | 6 | ELIGIBLE | High urgent ticket volume |\n| KeystoneMicro Global | Bronze | 35 | CRITICAL | 5 | ELIGIBLE | Renewal within 90 days |\n| Helios Networks LLC | Silver | 40 | AT_RISK | 6 | N/A | N/A |\n| Pan-Atlantic Digital LLC | Bronze | 40 | AT_RISK | 4 | N/A | N/A |\n| NovaTech Co | Silver | 40 | AT_RISK | 10 | N/A | N/A |\n| VertexFabric Systems | Silver | 40 | AT_RISK | 15 | N/A | N/A |\n| AtlasNetworks Global | Silver | 40 | AT_RISK | 6 | N/A | N/A |\n| SterlingWave Inc | Gold | 40 | AT_RISK | 3 | N/A | N/A |\n| Allied Wave Co | Silver | 40 | AT_RISK | 8 | N/A | N/A |\n| AtlasLoop Systems | Silver | 40 | AT_RISK | 2 | N/A | N/A |\n| LarkSystems Systems | Silver | 40 | AT_RISK | 12 | N/A | N/A |\n| PacificStream Group | Bronze | 40 | AT_RISK | 4 | N/A | N/A |\n| PioneerByte Corp | Gold | 40 | AT_RISK | 3 | N/A | N/A |\n| LarkMetric Holdings | Gold | 45 | AT_RISK | 2 | N/A | N/A |\n| VanguardSignal Corp | Silver | 45 | AT_RISK | 4 | N/A | N/A |\n| Consolidated Stream Global | Bronze | 45 | AT_RISK | 10 | N/A | N/A |\n| VanguardVision Systems | Bronze | 45 | AT_RISK | 5 | N/A | N/A |\n| SilverFabric Systems | Silver | 45 | AT_RISK | 4 | N/A | N/A |\n| NovaTech Industries | Silver | 45 | AT_RISK | 1 | N/A | N/A |\n| NovaNexus Industries | Bronze | 45 | AT_RISK | 3 | N/A | N/A |\n| Meridian Data Partners | Silver | 45 | AT_RISK | 4 | N/A | N/A |\n| CopperMetric LLC | Bronze | 45 | AT_RISK | 3 | N/A | N/A |\n| DeltaSphere Holdings | Gold | 45 | AT_RISK | 14 | N/A | N/A |\n| SilverVision Industries | Bronze | 45 | AT_RISK | 3 | N/A | N/A |\n| CrownData Corp | Gold | 45 | AT_RISK | 2 | N/A | N/A |\n| CobaltGrid Technologies | Bronze | 45 | AT_RISK | 3 | N/A | N/A |",
+  "error": null,
+  "error_class": null,
+  "score": {
+    "layer1_accuracy": 96.0,
+    "rows_returned": 50,
+    "set_recall": 0.92,
+    "set_precision": 0.92,
+    "set_f1": 0.92,
+    "status_accuracy": 1.0,
+    "status_checked": 46,
+    "eligibility_accuracy": 1.0,
+    "critical_checked": 26,
+    "row_count_ok": true,
+    "parsed_ok": true
+  },
+  "mcp_url": "https://mcp.cloud.cdata.com/mcp/toolkits/<your-toolkit-id>"
+}

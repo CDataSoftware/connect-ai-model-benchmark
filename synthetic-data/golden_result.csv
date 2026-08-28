@@ -1,0 +1,51 @@
+AccountName,SLA_Level,Health_Score_100,Health_Status,Urgent_Open_Tickets,Review_Eligible,Eligibility_Reason
+EmeraldMicro Solutions,Bronze,20,CRITICAL,10,True,Renewal in 17 days; 10 urgent open tickets
+NorthStream Industries,Bronze,20,CRITICAL,9,True,Renewal in 9 days; 9 urgent open tickets
+BlueGrid Holdings,Silver,25,CRITICAL,12,True,Renewal in 17 days; 12 urgent open tickets
+CascadeLabs LLC,Silver,25,CRITICAL,13,True,"ACV $550,003 above review threshold; 13 urgent open tickets"
+CopperNetworks Technologies,Silver,25,CRITICAL,12,True,"ACV $1,141,078 above review threshold; 12 urgent open tickets"
+GraniteData Corp,Silver,25,CRITICAL,13,True,"Renewal in 4 days; ACV $380,333 above review threshold; 13 urgent open tickets"
+PioneerSignal Partners,Bronze,25,CRITICAL,4,False,No escalation trigger met
+Standard Logic Group,Bronze,25,CRITICAL,4,False,No escalation trigger met
+SterlingCompute Holdings,Silver,25,CRITICAL,8,True,"ACV $623,736 above review threshold; 8 urgent open tickets"
+ApexData Global,Silver,30,CRITICAL,4,True,"ACV $287,739 above review threshold"
+CedarLink Inc,Silver,30,CRITICAL,4,True,"ACV $773,078 above review threshold"
+DeltaCloud Group,Gold,30,CRITICAL,14,True,"ACV $286,895 above review threshold; 14 urgent open tickets"
+DeltaLogic LLC,Gold,30,CRITICAL,7,True,"Renewal in 10 days; ACV $352,228 above review threshold; 7 urgent open tickets"
+GraniteByte Industries,Gold,30,CRITICAL,6,True,"Renewal in 26 days; ACV $975,009 above review threshold; 6 urgent open tickets"
+PioneerDynamics Partners,Bronze,30,CRITICAL,3,True,"ACV $1,184,416 above review threshold"
+VertexWorks Systems,Gold,30,CRITICAL,11,True,11 urgent open tickets
+AtlasNetworks Partners,Platinum,35,CRITICAL,10,True,"ACV $500,201 above review threshold; 10 urgent open tickets"
+BeaconPulse Industries,Silver,35,CRITICAL,3,True,Renewal in 30 days
+GraniteCompute Technologies,Bronze,35,CRITICAL,2,False,No escalation trigger met
+GraniteLoop Group,Silver,35,CRITICAL,3,True,"ACV $597,400 above review threshold"
+Helios Fabric Co,Bronze,35,CRITICAL,2,False,No escalation trigger met
+KeystoneAnalytics LLC,Bronze,35,CRITICAL,10,True,"Renewal in 4 days; ACV $977,259 above review threshold; 10 urgent open tickets"
+KeystoneMicro Global,Bronze,35,CRITICAL,5,True,Renewal in 57 days; 5 urgent open tickets
+SterlingVector Technologies,Bronze,35,CRITICAL,7,True,"Renewal in 53 days; ACV $731,706 above review threshold; 7 urgent open tickets"
+SummitSphere Group,Bronze,35,CRITICAL,2,False,No escalation trigger met
+VanguardStream Solutions,Platinum,35,CRITICAL,6,True,6 urgent open tickets
+Allied Wave Co,Silver,40,AT_RISK,8,,
+AtlasLoop Systems,Silver,40,AT_RISK,2,,
+AtlasNetworks Global,Silver,40,AT_RISK,6,,
+Helios Networks LLC,Silver,40,AT_RISK,6,,
+LarkSystems Systems,Silver,40,AT_RISK,12,,
+NovaTech Co,Silver,40,AT_RISK,10,,
+PacificStream Group,Bronze,40,AT_RISK,4,,
+Pan-Atlantic Digital LLC,Bronze,40,AT_RISK,4,,
+PioneerByte Corp,Gold,40,AT_RISK,3,,
+SterlingWave Inc,Gold,40,AT_RISK,3,,
+VertexFabric Systems,Silver,40,AT_RISK,15,,
+AtlasSystems Inc,Bronze,45,AT_RISK,0,,
+CedarVector LLC,Bronze,45,AT_RISK,0,,
+CobaltGrid Technologies,Bronze,45,AT_RISK,3,,
+Consolidated Stream Global,Bronze,45,AT_RISK,10,,
+CopperMetric LLC,Bronze,45,AT_RISK,3,,
+CrownData Corp,Gold,45,AT_RISK,2,,
+DeltaSphere Holdings,Gold,45,AT_RISK,14,,
+IronGrid Inc,Gold,45,AT_RISK,6,,
+LarkMetric Holdings,Gold,45,AT_RISK,2,,
+Meridian Data Partners,Silver,45,AT_RISK,4,,
+NovaNexus Industries,Bronze,45,AT_RISK,3,,
+NovaTech Industries,Silver,45,AT_RISK,1,,
+SilverFabric Global,Bronze,45,AT_RISK,0,,

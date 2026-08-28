@@ -1,0 +1,15 @@
+# Core
+requests==2.32.5
+PyYAML==6.0.2
+numpy==2.2.5
+
+# Charts + PDF
+matplotlib==3.10.8
+Pillow==10.4.0
+reportlab==4.5.1
+
+# Provider SDKs (client-side tool loop)
+anthropic==0.77.0
+openai==2.20.0
+google-genai==1.73.1
+# xAI (Grok) uses the OpenAI-compatible client via base_url, so no separate SDK.

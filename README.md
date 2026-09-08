@@ -75,9 +75,10 @@ flowchart LR
     linkStyle 1 stroke-width:2.5px,font-size:21px
 ```
 
-Dashed arrows mark the two baseline conditions, which skip the Connect AI data layer entirely and
-hit raw tables directly. Every optimized/guarded/unguarded condition goes through the same curated
-data layer and differs only in which tools and validation sit on top of it.
+Dashed arrows mark the two baseline conditions. Both baseline and optimized run through Connect AI.
+Baseline uses Connect AI's universal MCP tools for discovering tables, columns, and running
+queries, directly against the raw source tables, without any curated tools on top. Optimized,
+guarded, and unguarded conditions use purpose-built tools over a curated data layer instead.
 
 ## The tasks
 

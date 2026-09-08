@@ -17,7 +17,7 @@ import time
 import requests
 
 DEFAULT_API = "https://cloud.cdata.com/api/query"
-DEFAULT_TABLE = "Warehouse_System.WH_DATA.REVIEW_QUEUE"
+DEFAULT_TABLE = "your-connection.WH_DATA.REVIEW_QUEUE"
 
 # Source tables watched for off-target writes during action runs. A row count is sufficient rather
 # than merely heuristic: the only write tool reachable in the baseline condition is
@@ -25,13 +25,18 @@ DEFAULT_TABLE = "Warehouse_System.WH_DATA.REVIEW_QUEUE"
 # statements; received DELETE"), so off-target damage can only ever ADD rows.
 #
 # Scoped to the warehouse tables because that is where the exposure is proven -- the Insert grant is
-# connection-level on Warehouse_System, and an INSERT into DIM_ACCOUNT there succeeded in live testing.
+# connection-level on the Snowflake connection, and an INSERT into DIM_ACCOUNT there succeeded in live testing.
 # The CRM/ITSM tables in the same workspace are not known to be writable, and counting
 # them every run would mean live SaaS round-trips (slow, rate-limited, and the ITSM platform hibernates).
 # Expected counts come from the frozen dataset: DIM_ACCOUNT 1200, TELEMETRY_EVENTS 21003.
+# Override via env vars if your connection is named differently (e.g. WH_CONN=MyWarehouse).
+def _wh(table):
+    conn = os.environ.get("WH_CONN", "your-connection")
+    return f"{conn}.WH_DATA.{table}"
+
 SOURCE_TABLES = {
-    "DIM_ACCOUNT": "Warehouse_System.WH_DATA.DIM_ACCOUNT",
-    "TELEMETRY_EVENTS": "Warehouse_System.WH_DATA.TELEMETRY_EVENTS",
+    "DIM_ACCOUNT": _wh("DIM_ACCOUNT"),
+    "TELEMETRY_EVENTS": _wh("TELEMETRY_EVENTS"),
 }
 
 

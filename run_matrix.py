@@ -34,7 +34,8 @@ EMAIL = os.environ["CDATA_EMAIL"]; TOKEN = os.environ["CDATA_ACCESS_TOKEN"]
 
 KEYS = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "google": "GOOGLE_API_KEY", "xai": "XAI_API_KEY"}
 DISPATCH = {"anthropic": runners.run_anthropic, "openai": runners.run_openai,
-            "google": runners.run_gemini, "xai": runners.run_grok}
+            "google": runners.run_gemini, "xai": runners.run_grok,
+            "openai_compat": runners.run_openai_compat}
 
 def cost(rec, m):
     ir = m["price_input_per_mtok"]; cr = m.get("price_cached_input_per_mtok", ir * 0.1); orr = m["price_output_per_mtok"]
@@ -48,6 +49,13 @@ def kwargs_for(m):
         return {"thinking_level": m.get("thinking_level")}
     if m["provider"] == "anthropic":
         return {"thinking_budget": m.get("thinking_budget")}
+    if m["provider"] == "openai_compat":
+        kw = {"base_url": m["base_url"]}
+        if m.get("reasoning_effort"):
+            kw["reasoning_effort"] = m["reasoning_effort"]
+        if m.get("stream"):
+            kw["use_stream"] = True
+        return kw
     return {}
 
 def done(path):
@@ -85,9 +93,10 @@ def score_run(task, rec, queue_rows):
     raise SystemExit(f"task {task['id']}: unknown scoring mode {mode!r}")
 
 def tag_for(task, model_id, cond_name, run_idx):
+    safe_id = model_id.replace("/", "--")  # Together model IDs contain '/' which breaks file paths
     if task.get("legacy_tag"):   # R1's already-completed runs keep their original filenames
-        return f"{model_id}__{cond_name}__run{run_idx}"
-    return f"{model_id}__{task['id']}__{cond_name}__run{run_idx}"
+        return f"{safe_id}__{cond_name}__run{run_idx}"
+    return f"{safe_id}__{task['id']}__{cond_name}__run{run_idx}"
 
 def main():
     ap = argparse.ArgumentParser()
@@ -147,10 +156,13 @@ def main():
 
     n = 0
     for m in models:
-        keyenv = KEYS[m["provider"]]
-        if not os.environ.get(keyenv):
+        # api_key_env in models.yaml overrides the provider default (use for Together, Groq, etc.)
+        # omit api_key_env entirely for keyless local servers (Ollama) — runner receives "nokey"
+        keyenv = m.get("api_key_env") or KEYS.get(m["provider"])
+        if keyenv and not os.environ.get(keyenv):
             print(f"!! no key for {m['id']} ({m['provider']}) - skipping", flush=True); continue
         fn = DISPATCH[m["provider"]]; kw = kwargs_for(m)
+        api_key = os.environ.get(keyenv, "nokey") if keyenv else "nokey"
         for task, cond in plan:
             url = os.environ[cond["mcp_url_env"]]
             cap = cond.get("turn_cap", DEFAULT_TURN_CAP)
@@ -175,7 +187,7 @@ def main():
                         except Exception:
                             if attempt == 2: raise
                             time.sleep(5)
-                    rec = fn(m["id"], mcp, task["prompt"], cond["name"], r, os.environ[keyenv],
+                    rec = fn(m["id"], mcp, task["prompt"], cond["name"], r, api_key,
                              turn_cap=cap, temperature=TEMPERATURE, **kw)
                 except Exception as e:
                     rec = {"model": m["id"], "provider": m["provider"], "condition": cond["name"], "run": r,

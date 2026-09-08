@@ -28,7 +28,7 @@ results/*.log
 # Aggregated outputs (matrix.csv, runs_raw.csv, charts/, PDFs) are committed.
 results/matrix/
 results/judge/
-results/smoke/
+results/smoke*/
 results/_compare_pre_partialcredit/
 
 # Calibration: generated packet/key/template are regenerable (calibrate_sample.py).

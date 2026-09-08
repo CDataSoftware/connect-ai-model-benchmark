@@ -344,6 +344,112 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
     return rec
 
 
+# ---------- Generic OpenAI-compatible (Together AI, Groq, Ollama, vLLM, …) ----------
+def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12,
+                      base_url=None, reasoning_effort=None, temperature=None, use_stream=False):
+    """Tool-use loop for any OpenAI-compatible inference endpoint.
+
+    Set base_url in models.yaml (e.g. https://api.together.ai/v1, http://localhost:11434/v1).
+    For keyless local servers (Ollama) omit api_key_env in models.yaml — 'nokey' is passed here.
+    Set use_stream: true in models.yaml for providers that require streaming (e.g. Qwen3.7-Max
+    on Together.ai). Token counts come from the final stream chunk's usage field.
+    """
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key or "nokey", base_url=base_url)
+    rec = _blank(model, "openai_compat", condition, run_idx)
+    rec["turn_cap"] = turn_cap; rec["temperature_requested"] = temperature
+    rec["reasoning_mode"] = f"effort={reasoning_effort}" if reasoning_effort else "off"
+    tools = mcp_to_openai(mcp.list_tools())
+    rec["trace"].append({"event": "tools_listed", "count": len(tools), "names": [t["function"]["name"] for t in tools][:20]})
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
+    t_start = time.perf_counter()
+
+    def _call_streaming(base):
+        """Stream response, reassemble content + tool calls, return (message_dict, usage, finish_reason)."""
+        chunks = list(_retry(lambda: client.chat.completions.create(
+            **base, stream=True, stream_options={"include_usage": True})))
+        content = ""; tcs = {}; finish = None; usage = None
+        for chunk in chunks:
+            if chunk.usage:
+                usage = chunk.usage
+            if not chunk.choices:
+                continue
+            d = chunk.choices[0].delta; finish = chunk.choices[0].finish_reason or finish
+            if d.content:
+                content += d.content
+            for tc in (d.tool_calls or []):
+                e = tcs.setdefault(tc.index, {"id": tc.id or "", "name": "", "arguments": ""})
+                if tc.id: e["id"] = tc.id
+                if tc.function:
+                    if tc.function.name: e["name"] += tc.function.name
+                    if tc.function.arguments: e["arguments"] += tc.function.arguments
+        tool_calls = [{"id": e["id"], "type": "function",
+                       "function": {"name": e["name"], "arguments": e["arguments"]}}
+                      for e in tcs.values()] if tcs else None
+        return content, tool_calls, usage, finish
+
+    def create(msgs):
+        base = dict(model=model, messages=msgs, tools=tools, tool_choice="auto")
+        if reasoning_effort:
+            base["reasoning_effort"] = reasoning_effort
+        attempts = [{"temperature": temperature}, {}] if temperature is not None else [{}]
+        last = None
+        for extra in attempts:
+            try:
+                if use_stream:
+                    result = _retry(lambda: _call_streaming({**base, **extra}))
+                    rec["temperature_applied"] = extra.get("temperature", "provider_default")
+                    return result
+                r = _retry(lambda: client.chat.completions.create(**base, **extra))
+                rec["temperature_applied"] = extra.get("temperature", "provider_default")
+                return r
+            except Exception as e:
+                last = e
+        raise last
+
+    try:
+        for turn in range(1, turn_cap + 1):
+            rec["turns"] = turn
+            t0 = time.perf_counter(); resp = create(messages); rec["model_time_s"] += time.perf_counter() - t0
+            if use_stream:
+                content, tool_calls_raw, u, finish_reason = resp
+            else:
+                msg = resp.choices[0].message; finish_reason = resp.choices[0].finish_reason
+                content = msg.content; tool_calls_raw = None; u = resp.usage
+                if msg.tool_calls:
+                    tool_calls_raw = [{"id": tc.id, "type": "function",
+                                       "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                                      for tc in msg.tool_calls]
+            pt = int(getattr(u, "prompt_tokens", 0) or 0); ct = int(getattr(u, "completion_tokens", 0) or 0)
+            cached = int(getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", 0) or 0)
+            reason = int(getattr(getattr(u, "completion_tokens_details", None), "reasoning_tokens", 0) or 0)
+            rec["uncached_input"] += pt - cached; rec["cached_input"] += cached
+            rec["output"] += ct; rec["reasoning"] += reason
+            rec["raw_total"] += int(getattr(u, "total_tokens", 0) or 0)
+            rec["stop_reason"] = finish_reason
+            if not tool_calls_raw:
+                rec["final_answer"] = content or ""; break
+            messages.append({"role": "assistant", "content": content, "tool_calls": tool_calls_raw})
+            for tc in tool_calls_raw:
+                rec["tool_calls"] += 1
+                try:
+                    args = json.loads(tc["function"]["arguments"] or "{}")
+                except Exception:
+                    args = {}
+                fn = tc["function"]["name"]; tc_id = tc["id"]
+                t1 = time.perf_counter(); result = mcp.call_tool(fn, args); dt = time.perf_counter() - t1; rec["mcp_time_s"] += dt
+                body = mcp.result_text(result)
+                rec["trace"].append({"turn": turn, "tool": fn, "args": args, "result_chars": len(body), "mcp_s": round(dt, 2)})
+                messages.append({"role": "tool", "tool_call_id": tc_id, "content": body})
+            if turn == turn_cap:
+                rec["hit_turn_cap"] = True
+    except Exception as e:
+        rec["error"] = str(e)[:400]; rec["error_class"] = type(e).__name__
+    rec["wall_s"] = round(time.perf_counter() - t_start, 2)
+    rec["model_time_s"] = round(rec["model_time_s"], 2); rec["mcp_time_s"] = round(rec["mcp_time_s"], 2)
+    return rec
+
+
 # ---------- Grok (xAI, OpenAI-compatible chat completions) ----------
 def run_grok(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, reasoning_effort=None, temperature=None):
     from openai import OpenAI

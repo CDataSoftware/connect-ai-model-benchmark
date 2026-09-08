@@ -69,9 +69,9 @@ def _read(name):
 
 def build_accounts():
     """Every CRM account with all derived fields. Join keys mirror the real federation:
-    Account.Id -> DIM_ACCOUNT.SFDC_ACCOUNT_ID, Account.Name -> incidents.company_name."""
+    Account.Id -> DIM_ACCOUNT.CRM_ACCOUNT_ID, Account.Name -> incidents.company_name."""
     accounts = _read("crm_accounts.csv")
-    dim = {r["SFDC_ACCOUNT_ID"]: r for r in _read("warehouse_dim_account.csv")}
+    dim = {r["CRM_ACCOUNT_ID"]: r for r in _read("warehouse_dim_account.csv")}
 
     urgent = collections.Counter()
     for inc in _read("itsm_incidents.csv"):

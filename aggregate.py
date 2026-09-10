@@ -21,6 +21,17 @@ from core import scorer, tasks as tasklib
 
 MATRIX = os.path.join(HERE, "results", "matrix")
 
+# id -> label from models.yaml, the single source of truth for display names (see display_label).
+def _model_labels():
+    try:
+        import yaml
+        cfg = yaml.safe_load(open(os.path.join(HERE, "config", "models.yaml"), encoding="utf-8"))
+        return {m["id"]: m["label"] for m in cfg.get("models", []) if m.get("label")}
+    except Exception:
+        return {}
+
+MODEL_LABELS = _model_labels()
+
 
 def med(xs):
     xs = [x for x in xs if isinstance(x, (int, float))]
@@ -43,6 +54,49 @@ def load(dirpath):
     return out
 
 
+def success_rate(row):
+    """Fraction of the cell's runs that succeeded, on one uniform axis across all three tasks.
+
+    Read tasks record `solved_rate`; the action task records `clean_rate` instead and has no
+    `solved_rate` at all. Consumers that reached only for `solved_rate` therefore treated every
+    a1 cell as having no rate -- silently skipping the write task -- so the accessor is normalized
+    here rather than re-branched in each artifact.
+    """
+    key = "clean_rate" if row.get("task") == "a1" else "solved_rate"
+    v = row.get(key)
+    return v if isinstance(v, (int, float)) else None
+
+
+def is_bimodal(row):
+    """True when the cell's runs split between success and failure, so its median misleads.
+
+    Such a model does not degrade gracefully -- it either completes the task or returns nothing --
+    so the median reports the modal run rather than a typical one, and it misleads in BOTH
+    directions: a median of 0 hides a model that succeeds part of the time, and a median of 1.00
+    hides one that only succeeds part of the time. Either way the summary figure should not be read
+    as a capability ceiling.
+
+    The test is deliberately threshold-free: any cell whose success rate is strictly between 0 and
+    1 is mixed, and how badly is conveyed by `success_rate` itself, which is published alongside.
+    An earlier version also required a wide `correctness_range`, which excluded real cases -- most
+    notably Gemini 3.5 Flash on a1/guarded, a perfect median F1 at a 0.62 clean rate whose range is
+    only 21.9. Anything that trips this is flagged automatically; nothing is listed by hand.
+    """
+    sr = success_rate(row)
+    return bool(sr is not None and 0 < sr < 1)
+
+
+def display_label(rec):
+    """Canonical model label for the aggregated output.
+
+    Each run's JSON stores the label that was configured when it ran, so a label corrected in
+    models.yaml afterwards does not reach already-completed runs -- re-aggregating would keep
+    reviving the old string. Resolve the label from models.yaml by model id where possible and
+    fall back to the recorded one, so a config fix propagates without re-running any model.
+    """
+    return MODEL_LABELS.get(rec.get("model")) or rec.get("label") or rec.get("model")
+
+
 def main():
     TASKS = tasklib.load_tasks()
     recs = load(MATRIX)
@@ -50,7 +104,7 @@ def main():
     for tag, r in recs.items():
         if r.get("error"):
             continue
-        key = (tasklib.task_of(r), r["label"], r["provider"], r["condition"])
+        key = (tasklib.task_of(r), display_label(r), r["provider"], r["condition"])
         cells.setdefault(key, []).append((tag, r))
 
     rows = []
@@ -132,6 +186,11 @@ def main():
                 row["trajectory_med"] = round(med([t["trajectory"] for t in tj]), 1)
                 row["redundant_med"] = round(med([t["redundant"] for t in tj]), 1)
                 row["irrelevant_med"] = round(med([t["irrelevant"] for t in tj]), 1)
+
+        # Computed here, once, so every downstream artifact reads the same flag instead of
+        # re-deriving it -- two consumers previously disagreed, and neither covered a1 at all.
+        row["success_rate"] = success_rate(row)
+        row["bimodal"] = is_bimodal(row)
         rows.append(row)
 
     keys = []

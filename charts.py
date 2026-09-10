@@ -34,19 +34,13 @@ def fnum(r, k, d=0.0):
 def task_cond(rows, t, c):
     return {r["model"]: r for r in rows if r.get("task") == t and r["condition"] == c}
 
-# A cell is bimodal when runs land at the extremes rather than clustering: the model either solves
-# the task or returns nothing. The median then reports the modal run, not the typical one, and it
-# misleads in BOTH directions -- a median of 0 hides a model that solves 40% of the time, and a
-# median of 1.00 hides one that only solves 62%. Marked in the charts so a reader does not read
-# either as a capability ceiling. Threshold is a wide spread plus a solve rate that is neither 0
-# nor 1; see results/DATA_DICTIONARY.md.
+# Bimodal cells are flagged by aggregate.py and carried in matrix.csv, so the rule lives in exactly
+# one place. Do not re-derive it here: a local copy previously disagreed with build_pdf.py's and
+# covered only the read tasks. See aggregate.is_bimodal and results/DATA_DICTIONARY.md.
 BIMODAL_MARK = "*"
 
 def is_bimodal(r):
-    sr = r.get("solved_rate")
-    if sr in (None, ""):
-        return False
-    return 0 < fnum(r, "solved_rate") < 1 and fnum(r, "correctness_range") >= 50
+    return str(r.get("bimodal", "")).strip().lower() == "true"
 
 def mark(m, r):
     return f"{m} {BIMODAL_MARK}" if is_bimodal(r) else m
@@ -146,9 +140,33 @@ for b, v in zip(bars, vals):
     ax.text(v * 1.05, b.get_y() + b.get_height() / 2, f"${v:.4f}", va="center", ha="left", fontsize=9.5, color=INK)
 ax.set_xscale("log"); ax.set_xlabel("Cost per correct answer  (USD = $/query ÷ correctness, log scale) — lower is better")
 ax.set_title("Cost per correct answer", fontsize=15, fontweight="bold", loc="left", pad=42)
-spread = max(vals) / min(vals) if vals and min(vals) else 0
-ax.text(0, 1.012, f"{labels[best]} is cheapest per correct answer (${vals[best]:.4f}); ~{spread:.0f}× spread across models",
-        transform=ax.transAxes, fontsize=10.5, color=NAVY)
+# Headline the spread at EQUAL measured correctness, matching the README and the PDF. The
+# all-models min/max ratio is larger but compares models that did not score the same, so it
+# invites the obvious objection that the cheap end simply answered less well. Use the largest
+# group of models sharing an identical score; ties break toward the higher score.
+def equal_correctness_spread(cells):
+    groups = {}
+    for m, r in cells.items():
+        if fnum(r, "cost_per_correct", 9e9) < 9e9:
+            groups.setdefault(round(fnum(r, "correctness_med"), 1), []).append(
+                (fnum(r, "cost_per_correct"), m))
+    best_group = max(groups.items(), key=lambda kv: (len(kv[1]), kv[0], -min(v for v, _ in kv[1])),
+                     default=(None, []))
+    corr, members = best_group
+    if len(members) < 2:
+        return None
+    members.sort()
+    return corr, len(members), members[0], members[-1], members[-1][0] / members[0][0]
+
+eq = equal_correctness_spread(R1_OPT)
+if eq:
+    corr, n, (lo_v, lo_m), (hi_v, hi_m), ratio = eq
+    # No inline dollar amounts: two '$' in one matplotlib string pair into mathtext and the
+    # middle renders italic with the spaces eaten. The endpoints are already on the bars.
+    sub = f"{n} models scored an identical {corr:.1f}% — cost still spans ~{ratio:.0f}×"
+else:
+    sub = f"{labels[best]} is cheapest per correct answer (${vals[best]:.4f})"
+ax.text(0, 1.012, sub, transform=ax.transAxes, fontsize=10.5, color=NAVY)
 if no_score:
     ax.text(0, -0.155, "Excluded (no correct answer to price): " + ", ".join(no_score),
             transform=ax.transAxes, fontsize=8.5, color=GRAY)

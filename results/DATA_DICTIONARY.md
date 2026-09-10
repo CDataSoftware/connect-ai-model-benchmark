@@ -60,19 +60,36 @@ Accuracy is on a **0-100** scale unless noted. "Query"/"q" = one full task attem
 
 ### Reading medians: bimodal cells
 
-Some models do not degrade gracefully — they either solve the task or return nothing. In those
-cells runs pile up at 0 and at ~100 with nothing in between, so `correctness_med` reports the
-**modal** run rather than a typical one, and it misleads in both directions:
+Some models do not degrade gracefully — they either complete the task or return nothing. In those
+cells runs pile up at both ends with nothing in between, so the median reports the **modal** run
+rather than a typical one, and it misleads in both directions:
 
-- A median of **0** can hide a model that solves a substantial share of its runs. GPT-5.6 on
-  r1/optimized medians 0.0 at `solved_rate` 0.40; Qwen 3.5 9B on r2/optimized medians 0.0 at 0.38.
-- A median of **100** can hide real unreliability. Grok 4.3 on r2/optimized medians 100.0 at
-  `solved_rate` 0.62, and Haiku 4.5 at 0.88 — both read as "perfect" in a median-only table.
+- A median of **0** can hide a model that succeeds on a substantial share of its runs.
+- A median of **1.00 / 100%** can hide real unreliability — it reads as "perfect" in a
+  median-only table when the model in fact failed some runs outright.
 
-The signature is `correctness_range` near 100 with `solved_rate` strictly between 0 and 1. With
-8–10 runs per cell the median is also fragile there: one run crossing the midpoint can swing the
-reported figure substantially. Charts mark these models with `*`; `charts.py:is_bimodal()` holds
-the threshold. **Never quote `correctness_med` for such a cell without `solved_rate` beside it.**
+Two columns make this checkable rather than a matter of judgement:
+
+| Column | Meaning |
+|---|---|
+| `success_rate` | Fraction of the cell's runs that succeeded, on one axis for all three tasks — `solved_rate` for the read tasks, `clean_rate` for the action task. Normalized so consumers need no per-task branching. |
+| `bimodal` | `True` when `success_rate` is strictly between 0 and 1, i.e. the cell is mixed. |
+
+**Never quote a median for a `bimodal` cell without `success_rate` beside it.**
+
+The test is deliberately **threshold-free** — any mixed cell qualifies, and how badly is conveyed
+by `success_rate` itself. An earlier version additionally required a wide `correctness_range`,
+which excluded real cases: a perfect median action F1 at a 0.62 clean rate has a range of only
+21.9, and would have gone unflagged.
+
+Both columns are computed once in `aggregate.py` (`success_rate()` / `is_bimodal()`) and carried in
+`matrix.csv`. Charts and the PDF **read the stored flag**; they do not re-derive it, and no model is
+listed by hand anywhere — anything that trips the rule is flagged automatically on the next
+aggregation. This matters because two consumers previously held their own copies of the rule, the
+copies disagreed, and neither covered the action task at all.
+
+Note also that with 8–10 runs per cell a median is fragile near the midpoint: a single run crossing
+it can swing the reported figure substantially, with nothing about the model having changed.
 
 ## runs_raw.csv (one row per run)
 

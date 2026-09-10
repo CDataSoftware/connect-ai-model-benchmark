@@ -54,7 +54,15 @@ def f(r, k, d=0.0):
     except: return d
 
 def money(x): return f"${x:,.4f}" if x is not None else "n/a"
+# Blank means "no correct answer to divide by" -- must not render as $0.0000.
+def money_opt(r, k):
+    v = r.get(k)
+    return money(float(v)) if v not in (None, "") else "\u2014"
 def pct(x):   return f"{x:.0f}%"
+
+# Bimodal flag is computed once in aggregate.py and carried in matrix.csv. Read it; never re-derive.
+def bimodal(r): return str(r.get("bimodal", "")).strip().lower() == "true"
+def bimodal_mark(r): return " *" if bimodal(r) else ""
 
 # Total run cost. Exact when runs_raw.csv covers the same run count as matrix.csv; if runs_raw is
 # stale (regenerating it needs the unpublished per-run JSONs in results/matrix/), fall back to
@@ -245,9 +253,9 @@ story.append(KeepTogether([
 oh = ["Model", "F1", "Solved%", "$/query", "$/correct", "Calls", "Traj%", "Tokens", "Var"]
 odata = [oh]
 for r in sorted(R1_OPT, key=cpc):
-    odata.append([r["model"], f"{f(r,'correctness_med')/100:.2f}", pct(f(r,"solved_rate")*100),
+    odata.append([r["model"] + bimodal_mark(r), f"{f(r,'correctness_med')/100:.2f}", pct(f(r,"solved_rate")*100),
                   money(f(r,"cost_med")),
-                  money(f(r,"cost_per_correct")), f"{f(r,'calls_med'):.0f}",
+                  money_opt(r, "cost_per_correct"), f"{f(r,'calls_med'):.0f}",
                   pct(f(r,"trajectory_med")), f"{f(r,'tokens_med'):,.0f}", f"{f(r,'correctness_range'):.1f}"])
 ot = Table(odata, colWidths=[1.6*inch, 0.45*inch, 0.6*inch, 0.66*inch, 0.7*inch, 0.45*inch, 0.45*inch, 0.62*inch, 0.4*inch])
 ts = tbl_style()
@@ -292,17 +300,16 @@ story.append(KeepTogether([
 r2oh = ["Model", "F1", "$/query", "$/correct", "Calls", "Solved%", "Var"]
 r2odata = [r2oh]
 for r in sorted(R2_OPT, key=cpc):
-    r2odata.append([r["model"], f"{f(r,'set_f1_med'):.3f}", money(f(r,"cost_med")),
-                    money(f(r,"cost_per_correct")), f"{f(r,'calls_med'):.0f}",
+    r2odata.append([r["model"] + bimodal_mark(r), f"{f(r,'set_f1_med'):.3f}", money(f(r,"cost_med")),
+                    money_opt(r, "cost_per_correct"), f"{f(r,'calls_med'):.0f}",
                     pct(f(r,"solved_rate")*100), f"{f(r,'correctness_range'):.1f}"])
 r2ot = Table(r2odata, colWidths=[1.35*inch, 0.65*inch, 0.75*inch, 0.75*inch, 0.55*inch, 0.65*inch, 0.45*inch])
 ts2 = tbl_style()
 ts2.add("BACKGROUND", (0,1), (-1,1), HILITE)
 r2ot.setStyle(ts2)
-# Solve rates are read from the data, not hardcoded: a median F1 of 1.00 with an intermittent solve
-# rate is the bimodal case, and a stale literal here misstates it after any re-run.
-_R2_INTERMITTENT = sorted(((f(r, "solved_rate"), r["model"]) for r in R2_OPT
-                           if f(r, "set_f1_med") >= 0.999 and f(r, "solved_rate") < 1))
+# Read the shared `bimodal` flag from matrix.csv rather than re-deriving a local rule; the note
+# names whatever currently trips it, so a re-run cannot leave a stale literal behind.
+_R2_INTERMITTENT = sorted(((f(r, "success_rate"), r["model"]) for r in R2_OPT if bimodal(r)))
 _r2_note = ("; ".join(f"{m} solved {sr*100:.0f}% of runs" for sr, m in _R2_INTERMITTENT)
             if _R2_INTERMITTENT else "")
 r2_cap = (f"Sorted by cost per correct answer. Optimized tools combine health + usage in a single call, "

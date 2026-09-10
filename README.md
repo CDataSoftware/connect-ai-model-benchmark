@@ -35,7 +35,7 @@ flowchart LR
     end
 
     subgraph SG4["Scoring"]
-        C1["<b>Correctness</b><br/>vs. offline golden<br/><br/>46-100% correct<br/>(optimized, 20 of 22 models)<br/>2 models scored 0"]:::win
+        C1["<b>Correctness</b><br/>vs. offline golden<br/><br/>82-100% correct<br/>(optimized, 19 of 22 models)<br/>3 median 0"]:::win
         C2["<b>Safety</b> -- write task only<br/><br/>0 unauthorized rows<br/>(guarded, every model)"]:::win
         C3["<b>Cost per correct answer</b><br/><br/>~279x spread<br/>(same 91.3% score)"]:::win
         C4["<b>Trajectory Efficiency</b> (diagnostic)<br/>share of tool calls that were productive<br/><br/>2% to 100% by model<br/>not blended into correctness"]:::mono
@@ -197,7 +197,7 @@ artifacts against a frozen golden set, with no generative step anywhere in the s
 
 *(Task R1 optimized. Full R1 + R2 + A1 results in `results/matrix.csv` and the PDF report.)*
 
-Among the **20 models that completed the task**, the toolkit **equalizes correctness** (46–100%;
+Among the **19 models that completed the task**, the toolkit **equalizes correctness** (82–100%;
 Gemini 3.7 Flash, Gemini 3.5 Flash, and DeepSeek V4 Pro reach 100), so cost is the differentiator.
 The clearest like-for-like comparison: **nine models scored an identical 91.3%** at costs spanning
 **~279×**, from Mistral Small at $0.0008 to Fable 5 at $0.22. Frontier models are *not* more
@@ -213,21 +213,34 @@ Paying more can also buy less. Gemini 3.7 Flash reaches **100%** at $0.0412; Opu
 > medians in `runs_raw.csv`; `matrix.csv` rounds cost to 4 decimals, which at sub-cent prices
 > shifts the ratio by several percent.
 
-**Two models scored 0%** and mark the floor of the "any model will do" claim. Llama 3.3 70B
-answered from the prompt without ever calling a tool (100% wrong, 1 call). GPT-5.6 reached a
-correct answer in 40% of runs but timed out on the rest. A good tool surface raises the floor; it
-does not eliminate it.
+**Three models median 0%** and mark the floor of the "any model will do" claim. Llama 3.3 70B
+answered from the prompt without ever calling a tool (100% wrong, 1 call). GPT-5.6 and Qwen 3.5 9B
+both reached correct answers on a minority of runs — 40% and 30% respectively — and returned
+nothing on the rest. A good tool surface raises the floor; it does not eliminate it.
 
-Read those two zeros with `solved_rate`, not the median alone. GPT-5.6 is **bimodal** — it either
-solves the task or returns nothing, so its median of 0 describes the modal run, not the typical
-one. The same caveat cuts the other way: Grok 4.3 and Haiku 4.5 both median a perfect F1 on the
-composition read while solving only 62% and 88% of their runs. Charts mark such models with `*`;
-see [results/DATA_DICTIONARY.md](results/DATA_DICTIONARY.md#reading-medians-bimodal-cells).
+Read those zeros with `success_rate`, not the median alone. Some models are **bimodal** — they
+either complete the task or return nothing — so a median of 0 describes the modal run rather than
+a typical one. The caveat cuts both ways: a model can also median a *perfect* F1 while failing a
+real share of its runs outright.
 
-DeepSeek V4 Pro and Qwen 3.5 9B previously appeared in this list at 0%. That was a harness defect,
-not a capability limit: `run_openai_compat()` did not send `max_tokens`, so the provider's low
-default truncated the completion before either model could emit an answer. With the cap set,
-DeepSeek V4 Pro scores **100%** on both reads and Qwen 3.5 9B rises to 46% on the ranking read.
+Rather than call these out by hand, `aggregate.py` flags every cell whose `success_rate` is
+strictly between 0 and 1 and publishes a `bimodal` column in `matrix.csv`; the charts and the PDF
+read that flag and mark the affected models with `*`. The rule is threshold-free and applied
+uniformly across all three tasks, so any model that trips it is surfaced automatically — see
+[results/DATA_DICTIONARY.md](results/DATA_DICTIONARY.md#reading-medians-bimodal-cells).
+
+DeepSeek V4 Pro previously appeared in this list at 0%. That was a harness defect, not a capability
+limit: `run_openai_compat()` did not send `max_tokens`, so the provider's low default truncated the
+completion before the model could emit an answer. With an explicit cap it scores **100%** on both
+reads.
+
+Qwen 3.5 9B was truncated by the same defect but is **not** explained by it. Raising its cap from
+16,384 to 32,768 and re-running left truncation unchanged — three curated runs in both passes — and
+one run exceeded 32,768 as well, so no cap value resolves it. Its zero-scoring runs mostly return
+empty answers with budget to spare, some using under 700 tokens. It is bimodal at a ~30% solve
+rate, and its median is correspondingly unstable: an earlier pass at 5-of-10 read 46% where the
+current 3-of-10 reads 0%, with nothing about the model having changed. Quote `success_rate` for it,
+not the median.
 
 **Unaided (clean baseline), 0 of 66 runs solved the task** — mostly confidently-wrong — so the
 toolkit is necessary. On the write task, the **guarded** tool surface held every one of the 22

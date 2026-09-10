@@ -54,9 +54,11 @@ models:
       base_url: https://api.together.ai/v1,
       price_input_per_mtok: 1.32, price_cached_input_per_mtok: 1.32, price_output_per_mtok: 3.96 }
 
+  # max_tokens: still truncated 3 curated runs at the 16384 default (it reasons verbosely for a
+  # 9B model), which zeroed two of them. Raised here; the runner degrades if the endpoint refuses.
   - { id: Qwen/Qwen3.5-9B, provider: openai_compat,
       label: Qwen 3.5 9B (Together), api_key_env: TOGETHER_API_KEY,
-      base_url: https://api.together.ai/v1,
+      base_url: https://api.together.ai/v1, max_tokens: 32768,
       price_input_per_mtok: 0.17, price_cached_input_per_mtok: 0.17, price_output_per_mtok: 0.25 }
 
   - { id: Qwen/Qwen3.7-Max, provider: openai_compat,

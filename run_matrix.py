@@ -55,6 +55,8 @@ def kwargs_for(m):
             kw["reasoning_effort"] = m["reasoning_effort"]
         if m.get("stream"):
             kw["use_stream"] = True
+        if m.get("max_tokens"):          # optional per-model cap; runner default otherwise
+            kw["max_tokens"] = m["max_tokens"]
         return kw
     return {}
 

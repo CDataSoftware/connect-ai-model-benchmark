@@ -29,6 +29,12 @@ SYSTEM = ("You are an enterprise data assistant. Use the available tools to answ
           "markdown table with one row per account and clearly named columns. Do not "
           "invent data; only report what the tools return.")
 
+# Completion cap for OpenAI-compatible endpoints. Matches the Anthropic runner's floor (see
+# run_anthropic) so the two paths are comparable. Left unset, each endpoint applies its own
+# default; Together.ai's is small enough that a reasoning model can spend the entire budget on
+# reasoning tokens and be cut off before emitting an answer.
+OPENAI_COMPAT_MAX_TOKENS = 16384
+
 
 # ---------- schema adapters ----------
 def mcp_to_openai(tools):
@@ -346,17 +352,27 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
 
 # ---------- Generic OpenAI-compatible (Together AI, Groq, Ollama, vLLM, …) ----------
 def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12,
-                      base_url=None, reasoning_effort=None, temperature=None, use_stream=False):
+                      base_url=None, reasoning_effort=None, temperature=None, use_stream=False,
+                      max_tokens=None):
     """Tool-use loop for any OpenAI-compatible inference endpoint.
 
     Set base_url in models.yaml (e.g. https://api.together.ai/v1, http://localhost:11434/v1).
     For keyless local servers (Ollama) omit api_key_env in models.yaml — 'nokey' is passed here.
     Set use_stream: true in models.yaml for providers that require streaming (e.g. Qwen3.7-Max
     on Together.ai). Token counts come from the final stream chunk's usage field.
+
+    max_tokens caps the completion, defaulting to OPENAI_COMPAT_MAX_TOKENS. It must be sent
+    explicitly: left unset the endpoint's own default applies, which on Together.ai is small
+    enough that a reasoning model can spend the whole budget thinking and get cut off mid-answer
+    (finish_reason='length', empty answer, turn cap never reached). That is what scored DeepSeek
+    V4 Pro and Qwen 3.5 9B at 0% in V4. Override per-model in models.yaml where an endpoint caps
+    completions below the default.
     """
     from openai import OpenAI
     client = OpenAI(api_key=api_key or "nokey", base_url=base_url)
     rec = _blank(model, "openai_compat", condition, run_idx)
+    max_toks = max_tokens or OPENAI_COMPAT_MAX_TOKENS
+    rec["max_tokens_requested"] = max_toks
     rec["turn_cap"] = turn_cap; rec["temperature_requested"] = temperature
     rec["reasoning_mode"] = f"effort={reasoning_effort}" if reasoning_effort else "off"
     tools = mcp_to_openai(mcp.list_tools())
@@ -392,16 +408,21 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
         base = dict(model=model, messages=msgs, tools=tools, tool_choice="auto")
         if reasoning_effort:
             base["reasoning_effort"] = reasoning_effort
-        attempts = [{"temperature": temperature}, {}] if temperature is not None else [{}]
+        # Same degrade-and-retry idiom as temperature: an endpoint that rejects max_tokens, or
+        # caps it below our default, still gets a final attempt without it rather than erroring.
+        temps = [{"temperature": temperature}, {}] if temperature is not None else [{}]
+        attempts = [{**t, "max_tokens": max_toks} for t in temps] + temps
         last = None
         for extra in attempts:
             try:
                 if use_stream:
                     result = _retry(lambda: _call_streaming({**base, **extra}))
                     rec["temperature_applied"] = extra.get("temperature", "provider_default")
+                    rec["max_tokens_applied"] = extra.get("max_tokens", "provider_default")
                     return result
                 r = _retry(lambda: client.chat.completions.create(**base, **extra))
                 rec["temperature_applied"] = extra.get("temperature", "provider_default")
+                rec["max_tokens_applied"] = extra.get("max_tokens", "provider_default")
                 return r
             except Exception as e:
                 last = e

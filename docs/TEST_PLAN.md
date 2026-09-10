@@ -1,7 +1,9 @@
 # Benchmark Test Plan — breadth, boundary, and write-back
 
-Status: complete 2026-07-27; 423 runs across 9 models × 5 task-conditions. Results in
-`results/matrix.csv` and the PDF report.
+Status: complete 2026-09-08 (1,034 runs,
+154 cells, 22 models from 8 developers across 6 API endpoints). Results in `results/matrix.csv`, the charts, and the
+PDF report, all current, as is `results/runs_raw.csv` (1,034 runs, rebuilt from the
+unpublished per-run JSONs in `results/matrix/`). Total run cost: $250.97.
 
 ## Motivation
 

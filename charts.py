@@ -34,6 +34,23 @@ def fnum(r, k, d=0.0):
 def task_cond(rows, t, c):
     return {r["model"]: r for r in rows if r.get("task") == t and r["condition"] == c}
 
+# A cell is bimodal when runs land at the extremes rather than clustering: the model either solves
+# the task or returns nothing. The median then reports the modal run, not the typical one, and it
+# misleads in BOTH directions -- a median of 0 hides a model that solves 40% of the time, and a
+# median of 1.00 hides one that only solves 62%. Marked in the charts so a reader does not read
+# either as a capability ceiling. Threshold is a wide spread plus a solve rate that is neither 0
+# nor 1; see results/DATA_DICTIONARY.md.
+BIMODAL_MARK = "*"
+
+def is_bimodal(r):
+    sr = r.get("solved_rate")
+    if sr in (None, ""):
+        return False
+    return 0 < fnum(r, "solved_rate") < 1 and fnum(r, "correctness_range") >= 50
+
+def mark(m, r):
+    return f"{m} {BIMODAL_MARK}" if is_bimodal(r) else m
+
 def pareto_frontier(points, acc_tol=3.0):
     front = set()
     for m, c, a in points:
@@ -68,7 +85,8 @@ A1_RAW  = task_cond(ALL, "a1", "unguarded")
 A1_GRD  = task_cond(ALL, "a1", "guarded")
 
 # ---- 01. R1: F1 by model (optimized) ----
-data = sorted(((m, fnum(r, "correctness_med") / 100) for m, r in R1_OPT.items()), key=lambda x: x[1])
+data = sorted(((mark(m, r), fnum(r, "correctness_med") / 100) for m, r in R1_OPT.items()), key=lambda x: x[1])
+n_bimodal_r1 = sum(1 for r in R1_OPT.values() if is_bimodal(r))
 fig, ax = plt.subplots(figsize=(9, 5.2))
 labels = [m for m, _ in data]; vals = [v for _, v in data]
 colors = [YELLOW if m == labels[-1] else NAVY for m in labels]
@@ -77,8 +95,20 @@ for b, v in zip(bars, vals):
     ax.text(v + 0.01, b.get_y() + b.get_height() / 2, f"{v:.2f}", va="center", ha="left", fontsize=10, color=INK)
 ax.set_xlim(0, 1.12); ax.set_xlabel("F1 score — right accounts, statuses, CRITICAL eligibility")
 ax.set_title("Optimized condition: F1 by model", fontsize=15, fontweight="bold", loc="left", pad=42)
-ax.text(0, 1.012, f"F1 is equalized across tiers (all {min(vals):.2f}–{max(vals):.2f}); {labels[-1]} tops at {vals[-1]:.2f}",
-        transform=ax.transAxes, fontsize=10.5, color=NAVY)
+# The equalization claim describes the models that actually completed the task. Folding in models
+# that scored 0 would render it as "all 0.00-1.00", which contradicts itself; state the scoring
+# range and then name the non-scorers separately.
+scored_vals = [v for v in vals if v > 0]
+n_zero = len(vals) - len(scored_vals)
+sub = (f"F1 is equalized across tiers (all {min(scored_vals):.2f}–{max(scored_vals):.2f}); "
+       f"{labels[-1]} tops at {vals[-1]:.2f}") if scored_vals else "no model scored above 0"
+if n_zero:
+    sub += f" — {n_zero} model{'s' if n_zero > 1 else ''} scored 0"
+ax.text(0, 1.012, sub, transform=ax.transAxes, fontsize=10.5, color=NAVY)
+if n_bimodal_r1:
+    ax.text(0, -0.13, f"{BIMODAL_MARK} bimodal: runs split between solved and no-answer, so the "
+                      f"median is the modal run, not the typical one — see Solved% in the report",
+            transform=ax.transAxes, fontsize=9, color=NAVY)
 style(ax); save(fig, "01_correctness_by_model")
 
 # ---- 02. R1: F1 vs cost/query (best-value frontier) ----
@@ -90,7 +120,7 @@ for m, x, y in pts:
     lead = m in FRONT
     ax.scatter(x, y, s=170 if lead else 120, color=YELLOW if lead else NAVY,
                edgecolor=INK, linewidth=0.9 if lead else 0.7, zorder=3)
-    ax.annotate(m, (x, y), textcoords="offset points", xytext=OFF.get(m, (8, 5)),
+    ax.annotate(mark(m, R1_OPT[m]), (x, y), textcoords="offset points", xytext=OFF.get(m, (8, 5)),
                 fontsize=9, color=INK, fontweight="bold" if lead else "normal")
 ax.set_xscale("log"); ax.set_xlabel("Cost per query (USD, log scale)")
 ax.set_ylabel("F1 score"); ax.set_ylim(0.84, 1.02)
@@ -101,7 +131,12 @@ ax.text(0, 1.012, "Same correctness, very different cost — highlighted = best-
 style(ax); save(fig, "02_correctness_vs_cost")
 
 # ---- 03. R1: cost per correct answer ----
-cpc = sorted(((m, fnum(r, "cost_per_correct")) for m, r in R1_OPT.items()), key=lambda x: -x[1])
+# Models that never produced a correct answer have a blank cost_per_correct (no correct answer to
+# divide by). They must be excluded, not defaulted to 0 -- a 0 bar on a log axis breaks the tight
+# bbox and would also rank a 0%-correct model as "cheapest". Same 9e9 sentinel guard as chart 06.
+cpc = sorted(((m, fnum(r, "cost_per_correct", 9e9)) for m, r in R1_OPT.items()
+              if fnum(r, "cost_per_correct", 9e9) < 9e9), key=lambda x: -x[1])
+no_score = sorted(m for m, r in R1_OPT.items() if fnum(r, "cost_per_correct", 9e9) >= 9e9)
 fig, ax = plt.subplots(figsize=(9, 5.2))
 labels = [m for m, _ in cpc]; vals = [v for _, v in cpc]
 best = min(range(len(vals)), key=lambda i: vals[i]) if vals else 0
@@ -114,6 +149,9 @@ ax.set_title("Cost per correct answer", fontsize=15, fontweight="bold", loc="lef
 spread = max(vals) / min(vals) if vals and min(vals) else 0
 ax.text(0, 1.012, f"{labels[best]} is cheapest per correct answer (${vals[best]:.4f}); ~{spread:.0f}× spread across models",
         transform=ax.transAxes, fontsize=10.5, color=NAVY)
+if no_score:
+    ax.text(0, -0.155, "Excluded (no correct answer to price): " + ", ".join(no_score),
+            transform=ax.transAxes, fontsize=8.5, color=GRAY)
 style(ax); save(fig, "03_cost_per_correct")
 
 # ---- 04. R1: cost per query — baseline vs optimized ----
@@ -143,9 +181,15 @@ ax.barh(y - h/2, opt_f1,  height=h, color=NAVY, edgecolor=INK, linewidth=0.5, la
 for i, (b, o) in enumerate(zip(base_f1, opt_f1)):
     if b > 0.01: ax.text(b + 0.01, y[i] + h/2, f"{b:.2f}", va="center", fontsize=8.5, color=INK)
     ax.text(o + 0.01, y[i] - h/2, f"{o:.2f}", va="center", fontsize=8.5, color=INK)
-ax.set_yticks(y); ax.set_yticklabels(MODELS_R2)
+ax.set_yticks(y); ax.set_yticklabels([mark(m, R2_OPT[m]) for m in MODELS_R2])
 ax.set_xlim(0, 1.12); ax.set_xlabel("Set F1 (precision × recall on 44-account golden, harmonic mean)")
-ax.legend(loc="lower right", frameon=False, fontsize=9)
+# Legend sits in the header whitespace, not "lower right": nearly every optimized bar now reaches
+# 1.00, so an in-axes legend overlaps the bottom rows' value labels.
+ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.005), ncol=2, frameon=False, fontsize=9)
+if any(is_bimodal(r) for r in R2_OPT.values()):
+    ax.text(0, -0.12, f"{BIMODAL_MARK} bimodal: a median of 1.00 can still mean the model only "
+                      f"solved a fraction of its runs — see Solved% in the report",
+            transform=ax.transAxes, fontsize=9, color=NAVY)
 ax.set_title("Task R2: set F1 — baseline vs optimized", fontsize=15, fontweight="bold", loc="left", pad=42)
 ax.text(0, 1.012, "Optimized tools lift F1 from near-zero to near-perfect across all tiers",
         transform=ax.transAxes, fontsize=10.5, color=NAVY)

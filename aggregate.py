@@ -67,8 +67,13 @@ def main():
         reason = [r.get("reasoning", 0) for _, r in items]
 
         correctness = round(med(L1), 1)
-        cost = round(med(costs), 4)
-        cpc = round(cost / (correctness / 100), 4) if correctness > 0 else None
+        # 6 decimals, and derived from the UNROUNDED median. At sub-cent costs a 4-decimal
+        # cost_med is a large fraction of the value, and dividing an already-rounded cost
+        # compounded the error -- published spread multiples then failed to reproduce from
+        # runs_raw.csv (the R2 spread read 174.6x at 4dp vs 178.4x from the raw per-run data).
+        cost_exact = med(costs)
+        cost = round(cost_exact, 6)
+        cpc = round(cost_exact / (correctness / 100), 6) if correctness > 0 else None
         row = {
             "task": task_id, "model": label, "provider": prov, "condition": cond, "runs": len(items),
             "correctness_med": correctness,

@@ -1,4 +1,7 @@
-# Model matrix — original 9 (V3 benchmark, 423 runs) + 6 new (V4, open models).
+# Model matrix — 22 models, 8 developers.
+# NOTE: `provider` below is the API DIALECT the harness speaks (anthropic/openai/google/xai/
+# openai_compat), not the model's developer and not its host. Open-weight models are served by
+# Together.ai but built by Meta / DeepSeek / Alibaba; see the README model table.
 # Prices verified live 2026-08-28 (USD per MTok). Billing is provider-aware:
 #   OpenAI / Grok - reasoning tokens NESTED inside output (don't add again)
 #   Google        - thoughts tokens ADDITIVE, billed at output rate
@@ -10,7 +13,7 @@
 #                   All benchmark runs have been well under 200K; lower tier used here.
 # NOTE: reasoning "effort"/"level"/"budget" are NOT equatable across providers.
 
-# --- Original 9 (V3 benchmark) --- kept for resumable matrix; completed runs are skipped.
+# --- models
 models:
   - { id: claude-haiku-4-5,      provider: anthropic, label: Haiku 4.5,        price_input_per_mtok: 1.00, price_cached_input_per_mtok: 0.10,  price_output_per_mtok: 5.00,  thinking_budget: 2048 }
   - { id: claude-sonnet-4-6,     provider: anthropic, label: Sonnet 4.6,       price_input_per_mtok: 3.00, price_cached_input_per_mtok: 0.30,  price_output_per_mtok: 15.00, thinking_budget: 2048 }
@@ -21,10 +24,7 @@ models:
   - { id: gemini-3.5-flash,      provider: google,    label: Gemini 3.5 Flash, price_input_per_mtok: 1.50, price_cached_input_per_mtok: 0.15,  price_output_per_mtok: 9.00,  thinking_level: low }
   - { id: gemini-3.1-flash-lite, provider: google,    label: Gemini 3.1 Flash-Lite, price_input_per_mtok: 0.25, price_cached_input_per_mtok: 0.025, price_output_per_mtok: 1.50, thinking_level: low }
   - { id: grok-4.3,              provider: xai,       label: Grok 4.3,         price_input_per_mtok: 1.25, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 2.50,  reasoning_effort: low }
-
-# --- New models (V4) --- prices verified 2026-08-28.
   - { id: claude-fable-5,        provider: anthropic, label: Fable 5,          price_input_per_mtok: 10.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 50.00, thinking_budget: 2048 }
-  - { id: claude-fable-5-1,      provider: anthropic, label: Fable 5.1,        price_input_per_mtok: 10.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 50.00, thinking_budget: 2048 }
   - { id: claude-opus-5,         provider: anthropic, label: Opus 5,           price_input_per_mtok: 5.00,  price_cached_input_per_mtok: 0.50, price_output_per_mtok: 25.00, thinking_budget: 2048 }
   - { id: gpt-5.6,               provider: openai,    label: GPT-5.6,          price_input_per_mtok: 4.00,  price_cached_input_per_mtok: 0.40, price_output_per_mtok: 20.00, reasoning_effort: low }
   - { id: gpt-5.6-luna,          provider: openai,    label: GPT-5.6 Luna,     price_input_per_mtok: 0.20,  price_cached_input_per_mtok: 0.02, price_output_per_mtok: 1.20,  reasoning_effort: low }

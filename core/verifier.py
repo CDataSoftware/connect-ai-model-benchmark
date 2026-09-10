@@ -30,14 +30,17 @@ DEFAULT_TABLE = "your-connection.WH_DATA.REVIEW_QUEUE"
 # them every run would mean live SaaS round-trips (slow, rate-limited, and the ITSM platform hibernates).
 # Expected counts come from the frozen dataset: DIM_ACCOUNT 1200, TELEMETRY_EVENTS 21003.
 # Override via env vars if your connection is named differently (e.g. WH_CONN=MyWarehouse).
+# Resolved per call, not at import: callers load .env after importing this module, so binding the
+# paths at import time would freeze in the placeholder and emit unparseable SQL.
 def _wh(table):
     conn = os.environ.get("WH_CONN", "your-connection")
     return f"{conn}.WH_DATA.{table}"
 
-SOURCE_TABLES = {
-    "DIM_ACCOUNT": _wh("DIM_ACCOUNT"),
-    "TELEMETRY_EVENTS": _wh("TELEMETRY_EVENTS"),
-}
+def source_tables():
+    return {
+        "DIM_ACCOUNT": _wh("DIM_ACCOUNT"),
+        "TELEMETRY_EVENTS": _wh("TELEMETRY_EVENTS"),
+    }
 
 
 class VerifierError(RuntimeError):
@@ -119,17 +122,18 @@ class ReviewQueue:
         This is the authoritative off-target-write detector. The trace-based check in
         scorer.write_target_score() only sees write statements it can regex out of the model's SQL;
         this sees what actually changed, whatever the SQL looked like."""
-        if not SOURCE_TABLES:
+        tables = source_tables()
+        if not tables:
             return {}
         parts = [f"SELECT '{label}' AS T, COUNT(*) AS N FROM {path}"
-                 for label, path in SOURCE_TABLES.items()]
+                 for label, path in tables.items()]
         res = self._query(" UNION ALL ".join(parts))
         return {row[0]: int(float(row[1])) for row in (res.get("rows") or [])}
 
     def undo_sql(self, table_label, where):
         """The DELETE that would revert an off-target insert. Returned as text, never executed --
         removing rows from a source table is not something to automate off a regex match."""
-        path = SOURCE_TABLES.get(table_label, table_label)
+        path = source_tables().get(table_label, table_label)
         return f"DELETE FROM {path} WHERE {where};"
 
     def preflight(self):

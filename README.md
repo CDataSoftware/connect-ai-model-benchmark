@@ -5,7 +5,7 @@ A reproducible benchmark that asks:
 > **With a well-designed data toolkit, does model choice stop being a capability question and
 > become a cost question?**
 
-Nine models across four providers run **identical** governed-data tasks — once with only the raw
+Twenty-two models from eight developers run **identical** governed-data tasks — once with only the raw
 source tables (baseline) and once through a purpose-built CData Connect AI Toolkit (optimized).
 Three tasks span read and write: a portfolio-health read (R1), a multi-view composition read (R2),
 and a governed write-back (A1) — can the tool surface enforce write safety regardless of which
@@ -22,8 +22,8 @@ flowchart LR
     end
 
     subgraph SG2["Tool Surface -- 6 Conditions"]
-        T1["<b>R1 / R2 Baseline (read)</b><br/>raw tables, no curation<br/>0 / 27 runs solved"]:::baseline
-        T6["<b>A1 Baseline (write)</b><br/>raw tables, unvalidated write<br/>up to 250 unauthorized rows"]:::baseline
+        T1["<b>R1 / R2 Baseline (read)</b><br/>raw tables, no curation<br/>0 / 66 runs solved"]:::baseline
+        T6["<b>A1 Baseline (write)</b><br/>raw tables, unvalidated write<br/>up to 628 unauthorized rows"]:::baseline
         T2["<b>R1 Optimized (read)</b><br/>Account Health Insights"]:::curated
         T3["<b>R2 Optimized (read)</b><br/>Account + Usage Insights"]:::curated
         T4["<b>A1 Guarded (write)</b><br/>server-side eligibility check"]:::curated
@@ -31,13 +31,13 @@ flowchart LR
     end
 
     subgraph SG3["Models"]
-        MODELS["<b>9 Models Under Test</b><br/>Anthropic &middot; OpenAI &middot; Google &middot; xAI"]:::mono
+        MODELS["<b>22 Models Under Test</b><br/>8 developers &middot; 6 API endpoints<br/>frontier + open-weight"]:::mono
     end
 
     subgraph SG4["Scoring"]
-        C1["<b>Correctness</b><br/>vs. offline golden<br/><br/>89-100% correct<br/>(optimized, all models)"]:::win
+        C1["<b>Correctness</b><br/>vs. offline golden<br/><br/>46-100% correct<br/>(optimized, 20 of 22 models)<br/>2 models scored 0"]:::win
         C2["<b>Safety</b> -- write task only<br/><br/>0 unauthorized rows<br/>(guarded, every model)"]:::win
-        C3["<b>Cost per correct answer</b><br/><br/>~150x spread<br/>($0.003 to $0.45)"]:::win
+        C3["<b>Cost per correct answer</b><br/><br/>~279x spread<br/>(same 91.3% score)"]:::win
         C4["<b>Trajectory Efficiency</b> (diagnostic)<br/>share of tool calls that were productive<br/><br/>2% to 100% by model<br/>not blended into correctness"]:::mono
     end
 
@@ -104,19 +104,42 @@ inside the golden.
 | **unguarded** (A1) | Curated read tools + a write tool with **no** server-side validation. |
 | **guarded** (A1) | Same, but validation lives *in the tool* — eligibility checked server-side before any write lands. |
 
-5–10 runs per model × task × condition. Per-condition turn cap (baseline 40, curated 12); matched
-reasoning regime; temperature logged per run.
+3–10 runs per model × task × condition. Per-condition turn cap (baseline 40, curated 12); matched
+reasoning regime; temperature logged per run. The full matrix is **154 cells / 1,034 runs** across
+22 models, 3 tasks, and 6 conditions.
 
 > **Results provenance:** `matrix.csv`, `runs_raw.csv`, charts, and the PDF are committed.
 > Raw per-run JSON artifacts are not published. `aggregate.py`/`export_raw.py` recompute
 > correctness from each run's saved answer, so they always reflect the current scorer.
+>
+> All published artifacts — `matrix.csv`, `runs_raw.csv` (1,034 runs), the charts, and the PDF —
+> cover the same 22-model run. Total run cost across the matrix: **$250.97**.
 
-## Models (4 providers)
+## Models (22 models, 8 developers)
 
-- **Anthropic** — Haiku 4.5, Sonnet 4.6, Sonnet 5, Opus 4.8
-- **OpenAI** — GPT-5.5, GPT-5.4 mini
-- **Google** — Gemini 3.5 Flash, Gemini 3.1 Flash-Lite
-- **xAI** — Grok 4.3
+Grouped by who **built** the model. Where the model is open-weight, the endpoint that **served**
+it for this run is noted separately — the host is an inference detail, not an attribute of the
+model.
+
+| Developer | Models | Served by |
+|---|---|---|
+| **Anthropic** | Haiku 4.5, Sonnet 4.6, Sonnet 5, Opus 4.8, Opus 5, Fable 5 | Anthropic (first-party) |
+| **OpenAI** | GPT-5.4 mini, GPT-5.5, GPT-5.6, GPT-5.6 Luna | OpenAI (first-party) |
+| **Google** | Gemini 3.1 Flash-Lite, Gemini 3.5 Flash, Gemini 3.7 Flash | Google (first-party) |
+| **xAI** | Grok 4.3, Grok 4.6 | xAI (first-party) |
+| **Mistral AI** | Mistral Small, Mistral Large | Mistral AI (first-party) |
+| **Meta** | Llama 3.3 70B | Together.ai |
+| **DeepSeek** | DeepSeek V4 Flash, DeepSeek V4 Pro | Together.ai |
+| **Alibaba** | Qwen 3.5 9B, Qwen 3.7 Max | Together.ai |
+
+> **On the `provider` column:** in `models.yaml` and `matrix.csv`, `provider` names the **API
+> dialect the harness speaks**, not the model's developer. The open-weight models and Mistral all
+> report `openai_compat`, the generic OpenAI-compatible runner (Together, Groq, Ollama, vLLM).
+> Read it as a transport detail; the model labels carry the host in parentheses.
+
+Because hosted open-weight results depend on the serving stack (quantization, sampling defaults,
+context handling), a Together.ai figure is a measurement of *that deployment* of the model, not a
+canonical property of the weights — a different host may score differently.
 
 All providers run through the **same client-side tool loop** for token-accounting parity
 (not native remote-MCP), with provider-aware token billing at list prices.
@@ -149,23 +172,67 @@ artifacts against a frozen golden set, with no generative step anywhere in the s
 
 | Model | Correct % | $/query | **$/correct** |
 |---|--:|--:|--:|
-| **Gemini 3.1 Flash-Lite** | 91.3 | $0.0027 | **$0.0030** |
-| Grok 4.3 | 91.3 | $0.0051 | $0.0056 |
-| GPT-5.4 mini | 91.3 | $0.0107 | $0.0117 |
-| Haiku 4.5 | 91.3 | $0.0414 | $0.0453 |
-| Sonnet 5 | 91.3 | $0.0534 | $0.0585 |
-| Gemini 3.5 Flash | **100.0** | $0.0686 | $0.0686 |
-| GPT-5.5 | 91.3 | $0.1034 | $0.1133 |
-| Sonnet 4.6 | 88.9 | $0.1638 | $0.1843 |
-| Opus 4.8 | 95.2 | $0.4304 | $0.4521 |
+| **Mistral Small (mistral.ai)** | 91.3 | $0.0008 | **$0.0009** |
+| DeepSeek V4 Flash (Together) | 91.3 | $0.0019 | $0.0021 |
+| Gemini 3.1 Flash-Lite | 91.3 | $0.0028 | $0.0031 |
+| Grok 4.3 | 91.3 | $0.0037 | $0.0041 |
+| GPT-5.6 Luna | 88.9 | $0.0038 | $0.0043 |
+| Mistral Large (mistral.ai) | 91.3 | $0.0062 | $0.0068 |
+| GPT-5.4 mini | 95.7 | $0.0109 | $0.0114 |
+| Grok 4.6 | 91.3 | $0.0215 | $0.0235 |
+| Haiku 4.5 | 91.3 | $0.0285 | $0.0312 |
+| Qwen 3.7 Max (Together) | 98.4 | $0.0309 | $0.0314 |
+| Gemini 3.7 Flash | **100.0** | $0.0412 | $0.0412 |
+| Sonnet 5 | 91.3 | $0.0421 | $0.0461 |
+| Gemini 3.5 Flash | **100.0** | $0.0645 | $0.0645 |
+| GPT-5.5 | 88.9 | $0.0854 | $0.0961 |
+| Sonnet 4.6 | 81.8 | $0.1625 | $0.1987 |
+| Fable 5 | 91.3 | $0.2224 | $0.2436 |
+| Opus 5 | 97.6 | $0.3195 | $0.3274 |
+| Opus 4.8 | 95.2 | $0.4162 | $0.4372 |
+| DeepSeek V4 Pro (Together) | 0.0 | $0.0267 | — |
+| GPT-5.6 | 0.0 | $0.0116 | — |
+| Llama 3.3 70B (Together) | 0.0 | $0.0020 | — |
+| Qwen 3.5 9B (Together) | 0.0 | $0.0018 | — |
 
 *(Task R1 optimized. Full R1 + R2 + A1 results in `results/matrix.csv` and the PDF report.)*
 
-Under the toolkit **correctness is equalized** (every model 89–100%; Gemini Flash uniquely 100), so
-cost is the differentiator — a **~150× spread** in cost per correct answer, from Flash-Lite at
-$0.003 to Opus at $0.45. Frontier models are *not* more efficient: ~91% of their tool calls are
-redundant per-account drilldowns. **Unaided (clean baseline), 0 of 27 runs solved the task** — mostly
-confidently-wrong — so the toolkit is necessary. Full write-up in the PDF report.
+Among the **20 models that completed the task**, the toolkit **equalizes correctness** (46–100%;
+Gemini 3.7 Flash, Gemini 3.5 Flash, and DeepSeek V4 Pro reach 100), so cost is the differentiator.
+The clearest like-for-like comparison: **nine models scored an identical 91.3%** at costs spanning
+**~279×**, from Mistral Small at $0.0008 to Fable 5 at $0.22. Frontier models are *not* more
+efficient: ~91% of their tool calls are redundant per-account drilldowns.
+
+Paying more can also buy less. Gemini 3.7 Flash reaches **100%** at $0.0412; Opus 4.8 reaches
+**95.2%** at $0.4372 — 10.6× the price for a lower score.
+
+> **On spread figures.** Quoted multiples compare models at *equal* measured correctness, so
+> "same answer, different price" holds literally. A cheapest-to-dearest figure across the whole
+> field would read ~549× on this task, but its endpoints differ in accuracy (91.3% vs 95.2%) and
+> it therefore overstates the like-for-like gap. Multiples are computed from unrounded per-run
+> medians in `runs_raw.csv`; `matrix.csv` rounds cost to 4 decimals, which at sub-cent prices
+> shifts the ratio by several percent.
+
+**Two models scored 0%** and mark the floor of the "any model will do" claim. Llama 3.3 70B
+answered from the prompt without ever calling a tool (100% wrong, 1 call). GPT-5.6 reached a
+correct answer in 40% of runs but timed out on the rest. A good tool surface raises the floor; it
+does not eliminate it.
+
+Read those two zeros with `solved_rate`, not the median alone. GPT-5.6 is **bimodal** — it either
+solves the task or returns nothing, so its median of 0 describes the modal run, not the typical
+one. The same caveat cuts the other way: Grok 4.3 and Haiku 4.5 both median a perfect F1 on the
+composition read while solving only 62% and 88% of their runs. Charts mark such models with `*`;
+see [results/DATA_DICTIONARY.md](results/DATA_DICTIONARY.md#reading-medians-bimodal-cells).
+
+DeepSeek V4 Pro and Qwen 3.5 9B previously appeared in this list at 0%. That was a harness defect,
+not a capability limit: `run_openai_compat()` did not send `max_tokens`, so the provider's low
+default truncated the completion before either model could emit an answer. With the cap set,
+DeepSeek V4 Pro scores **100%** on both reads and Qwen 3.5 9B rises to 46% on the ranking read.
+
+**Unaided (clean baseline), 0 of 66 runs solved the task** — mostly confidently-wrong — so the
+toolkit is necessary. On the write task, the **guarded** tool surface held every one of the 22
+models to **0 unauthorized rows**, against up to 628 on baseline and 1,672 unguarded. Full
+write-up in the PDF report.
 
 ## Repo layout
 
@@ -199,7 +266,7 @@ confidently-wrong — so the toolkit is necessary. Full write-up in the PDF repo
    cross-checks the offline model against the live Derived Views.
 4. `python run_matrix.py --dry-run` — confirm the plan (tasks × conditions × runs) before spending.
 5. `python run_matrix.py` — full matrix (resumable; skips completed runs). Scope it with
-   `--task r2`, `--model gpt-5.5`, or smoke-test cheaply with `--runs 1 --out-dir results/smoke`.
+   `--task r2`, `--model gpt-5.6`, or smoke-test cheaply with `--runs 1 --out-dir results/smoke`.
 6. `python aggregate.py` → `python export_raw.py` → `python charts.py` → `python build_pdf.py` (outputs `results/CData_ConnectAI_Model_Benchmark.pdf`).
    (These recompute every score from each run's saved artifact — answer text, or the post-run
    snapshot of the write target — so they always reflect the current scorer, and a scorer fix applies

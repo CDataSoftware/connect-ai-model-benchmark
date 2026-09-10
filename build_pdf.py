@@ -56,22 +56,56 @@ def f(r, k, d=0.0):
 def money(x): return f"${x:,.4f}" if x is not None else "n/a"
 def pct(x):   return f"{x:.0f}%"
 
-# total run cost
-TOTAL_COST = None
+# Total run cost. Exact when runs_raw.csv covers the same run count as matrix.csv; if runs_raw is
+# stale (regenerating it needs the unpublished per-run JSONs in results/matrix/), fall back to
+# sum(cost_med x runs) from the matrix and mark the figure approximate rather than print a total
+# that silently under-reports the run that actually happened.
+MATRIX_RUNS = sum(int(r.get("runs") or 0) for r in ALL)
+TOTAL_COST, TOTAL_COST_EXACT = None, True
 try:
     with open(os.path.join(HERE, "results", "runs_raw.csv"), newline="", encoding="utf-8") as fh:
-        TOTAL_COST = sum(float(x.get("cost_usd") or 0) for x in csv.DictReader(fh))
+        raw = list(csv.DictReader(fh))
+    if len(raw) == MATRIX_RUNS:
+        TOTAL_COST = sum(float(x.get("cost_usd") or 0) for x in raw)
+    else:
+        TOTAL_COST_EXACT = False
 except Exception:
-    pass
-def money_total(x): return f"${x:,.2f}" if x is not None else "n/a"
+    TOTAL_COST_EXACT = False
+if TOTAL_COST is None:
+    TOTAL_COST = sum(float(r.get("cost_med") or 0) * int(r.get("runs") or 0) for r in ALL) or None
+
+def money_total(x):
+    if x is None: return "n/a"
+    return f"${x:,.2f}" if TOTAL_COST_EXACT else f"~${x:,.0f}"
 
 # R1 summary stats
 def cpc(r): return f(r, "cost_per_correct", 9e9)
 R1_OPT_S  = sorted(R1_OPT, key=cpc)
 R1_BEST   = R1_OPT_S[0]; R1_WORST = R1_OPT_S[-1]
-R1_CORR_LO = min(f(r, "correctness_med") for r in R1_OPT) if R1_OPT else 0
-R1_CORR_HI = max(f(r, "correctness_med") for r in R1_OPT) if R1_OPT else 0
+# Scored models only. Including a 0 would render the equalization claim as "all 0.00-1.00", which
+# contradicts itself; non-scorers are named separately in Limitations. Mirrors charts.py chart 01.
+_R1_SCORED = [f(r, "correctness_med") for r in R1_OPT if f(r, "correctness_med") > 0]
+R1_CORR_LO = min(_R1_SCORED) if _R1_SCORED else 0
+R1_CORR_HI = max(_R1_SCORED) if _R1_SCORED else 0
+R1_NONSCORERS = [r["model"] for r in R1_OPT if f(r, "correctness_med") <= 0]
 R1_CPC_SPREAD = (cpc(R1_WORST) / cpc(R1_BEST)) if cpc(R1_BEST) else 0
+
+# Like-for-like spread: the largest cohort of models sharing an identical median correctness, and
+# the cost range within it. Preferred over cheapest-to-dearest (R1_CPC_SPREAD) for any published
+# claim -- that figure's endpoints differ in accuracy, so "same answer, different price" does not
+# actually hold for it, and it reads far larger as a result.
+def _cohort_spread(rows):
+    """(spread, n, correctness, cheapest_model, dearest_model) for the largest equal-score cohort."""
+    by = {}
+    for r in rows:
+        if cpc(r) >= 9e9: continue
+        by.setdefault(f(r, "correctness_med"), []).append((cpc(r), r["model"]))
+    cohorts = [(c, sorted(v)) for c, v in by.items() if len(v) > 1]
+    if not cohorts: return 0, 0, 0, None, None
+    corr, v = max(cohorts, key=lambda cv: len(cv[1]))
+    return v[-1][0] / v[0][0], len(v), corr, v[0][1], v[-1][1]
+
+R1_COHORT_SPREAD, R1_COHORT_N, R1_COHORT_CORR, R1_COHORT_LO_M, R1_COHORT_HI_M = _cohort_spread(R1_OPT)
 BASE_WRONG_PCT = round(_stx.mean([f(r, "wrong_rate") for r in R1_BASE]) * 100) if R1_BASE else 0
 BASE_OVERLAP   = round(_stx.mean([f(r, "overlap_med") for r in R1_BASE])) if R1_BASE else 0
 BASE_SOLVERS   = [r["model"] for r in R1_BASE if f(r, "solved_rate") > 0]
@@ -206,13 +240,16 @@ story.append(KeepTogether([
 ]))
 
 # R1 optimized
-oh = ["Model", "F1", "$/query", "$/correct", "Calls", "Traj%", "Tokens", "Var"]
+# Solved% sits next to F1 deliberately: for a bimodal cell the median alone misleads (a median of
+# 0 can hide a model that solves 40% of its runs). R2's table already pairs them; matched here.
+oh = ["Model", "F1", "Solved%", "$/query", "$/correct", "Calls", "Traj%", "Tokens", "Var"]
 odata = [oh]
 for r in sorted(R1_OPT, key=cpc):
-    odata.append([r["model"], f"{f(r,'correctness_med')/100:.2f}", money(f(r,"cost_med")),
+    odata.append([r["model"], f"{f(r,'correctness_med')/100:.2f}", pct(f(r,"solved_rate")*100),
+                  money(f(r,"cost_med")),
                   money(f(r,"cost_per_correct")), f"{f(r,'calls_med'):.0f}",
                   pct(f(r,"trajectory_med")), f"{f(r,'tokens_med'):,.0f}", f"{f(r,'correctness_range'):.1f}"])
-ot = Table(odata, colWidths=[1.35*inch, 0.65*inch, 0.72*inch, 0.75*inch, 0.5*inch, 0.5*inch, 0.72*inch, 0.45*inch])
+ot = Table(odata, colWidths=[1.6*inch, 0.45*inch, 0.6*inch, 0.66*inch, 0.7*inch, 0.45*inch, 0.45*inch, 0.62*inch, 0.4*inch])
 ts = tbl_style()
 ts.add("BACKGROUND", (0,1), (-1,1), HILITE)
 ot.setStyle(ts)
@@ -220,8 +257,11 @@ story.append(KeepTogether([
     Paragraph("Optimized &mdash; curated Custom Tools", S_H2),
     ot,
     Paragraph(f"Sorted by cost per correct answer (best first, highlighted). F1 is equalized "
-              f"({R1_CORR_LO/100:.2f}&ndash;{R1_CORR_HI/100:.2f}) across all tiers &mdash; a ~{R1_CPC_SPREAD:.0f}&times; "
-              f"cost spread remains. <b>Traj%</b> = share of tool calls that were productive.", S_SMALL),
+              f"({R1_CORR_LO/100:.2f}&ndash;{R1_CORR_HI/100:.2f}) across all tiers &mdash; and among the "
+              f"{R1_COHORT_N} models that scored an identical {R1_COHORT_CORR:.1f}%, cost still spans "
+              f"~{R1_COHORT_SPREAD:.0f}&times; ({R1_COHORT_LO_M} to {R1_COHORT_HI_M}). "
+              f"<b>Solved%</b> = share of runs that produced a usable answer; read it alongside F1, "
+              f"which is a median. <b>Traj%</b> = share of tool calls that were productive.", S_SMALL),
 ]))
 
 # ============================================================
@@ -259,9 +299,16 @@ r2ot = Table(r2odata, colWidths=[1.35*inch, 0.65*inch, 0.75*inch, 0.75*inch, 0.5
 ts2 = tbl_style()
 ts2.add("BACKGROUND", (0,1), (-1,1), HILITE)
 r2ot.setStyle(ts2)
+# Solve rates are read from the data, not hardcoded: a median F1 of 1.00 with an intermittent solve
+# rate is the bimodal case, and a stale literal here misstates it after any re-run.
+_R2_INTERMITTENT = sorted(((f(r, "solved_rate"), r["model"]) for r in R2_OPT
+                           if f(r, "set_f1_med") >= 0.999 and f(r, "solved_rate") < 1))
+_r2_note = ("; ".join(f"{m} solved {sr*100:.0f}% of runs" for sr, m in _R2_INTERMITTENT)
+            if _R2_INTERMITTENT else "")
 r2_cap = (f"Sorted by cost per correct answer. Optimized tools combine health + usage in a single call, "
           f"lifting F1 from near-zero to {R2_CORR_LO:.0f}&ndash;{R2_CORR_HI:.0f}% across most models. "
-          f"Grok 4.3 is the outlier (50% solve rate; stochastic tool parameter usage).")
+          + (f"F1 is a median, so read <b>Solved%</b> beside it &mdash; {_r2_note}, so their perfect "
+             f"medians describe the modal run rather than a typical one." if _r2_note else ""))
 story.append(KeepTogether([
     Paragraph("Optimized &mdash; curated Custom Tools", S_H2),
     r2ot,
@@ -294,7 +341,7 @@ for m in models_a1:
         f"{f(grd, 'action_f1_med'):.2f}",      pct(f(grd, "clean_rate")*100),
         f"{f(grd, 'unauthorized_med'):.0f}",
     ])
-sot = Table(sodata, colWidths=[1.3*inch, 0.7*inch, 0.7*inch, 0.6*inch, 0.7*inch, 0.6*inch, 0.7*inch, 0.65*inch])
+sot = Table(sodata, colWidths=[1.62*inch, 0.63*inch, 0.63*inch, 0.55*inch, 0.65*inch, 0.55*inch, 0.65*inch, 0.6*inch])
 ts3 = tbl_style(header_bg=NAVY)
 # green rows where guarded F1=1 and 0 unauth
 for i, m in enumerate(models_a1, start=1):
@@ -327,7 +374,7 @@ def a1_detail_table(rows, cond_label, golden=21):
             pct(f(r,"unsafe_rate")*100),
             money(f(r,"cost_med")),
         ])
-    t = Table(data, colWidths=[1.3*inch, 0.5*inch, 0.5*inch, 0.55*inch, 0.75*inch, 0.6*inch, 0.6*inch, 0.7*inch])
+    t = Table(data, colWidths=[1.62*inch, 0.45*inch, 0.45*inch, 0.5*inch, 0.68*inch, 0.55*inch, 0.55*inch, 0.65*inch])
     ts = tbl_style()
     for i, r in enumerate(rows, start=1):
         if f(r, "action_f1_med") >= 1.0 and f(r, "unauthorized_med") == 0:

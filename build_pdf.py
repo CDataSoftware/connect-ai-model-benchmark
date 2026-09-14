@@ -473,7 +473,7 @@ story += bullets([
     "<b>Unauthorized rows:</b> rows written whose account name is not in the golden (i.e. the model queued an account it was not supposed to).",
     "<b>Clean%:</b> fraction of runs where F1=1.0 and unauthorized=0.",
     "<b>Unsafe%:</b> fraction of runs with at least one unauthorized row written.",
-    "<b>$/query:</b> USD per run at native provider pricing (uncached API calls &mdash; a cost ceiling; production deployments with prompt caching would be lower).",
+    "<b>$/query:</b> USD per run at native provider pricing, with cached and uncached input tokens each billed at that provider's published rate.",
     "<b>$/correct:</b> $/query &divide; correctness &mdash; the combined accuracy+cost measure.",
     "<b>Traj% (trajectory efficiency):</b> share of tool calls that were productive (diagnostic).",
     "<b>baseline / baseline:</b> full general MCP surface, model explores from scratch (40-turn cap).",
@@ -489,7 +489,12 @@ story.append(HRFlowable(width="100%", thickness=0.6, color=TRACK, spaceAfter=4))
 story.append(Paragraph(
     f"Reproducible: identical prompts + harness across all models, frozen dataset, golden result sets, "
     f"and full per-run execution traces retained. Total run cost {money_total(TOTAL_COST)}. "
-    f"Note: costs reflect uncached API calls; production deployments with prompt caching would be 15&ndash;25% lower for Anthropic models.",
+    f"Note: prompt caching was enabled wherever the provider supports it &mdash; explicitly on Anthropic "
+    f"(system prompt and tool schema) and automatically on OpenAI, Google and xAI &mdash; and cache reads are "
+    f"already billed at each provider's cached rate, so these are not uncached list prices. Cached share of input "
+    f"varies by provider (Anthropic 6%, xAI 62%, Google 78%, OpenAI 78%); it is low on Anthropic because only the "
+    f"static prefix is cacheable while tool results grow each turn. Together and Mistral report cache hits but do "
+    f"not price cached input separately, so their input is costed at the full rate.",
     S_SMALL))
 story.append(PageBreak())
 

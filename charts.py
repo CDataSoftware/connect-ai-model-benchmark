@@ -79,10 +79,21 @@ A1_RAW  = task_cond(ALL, "a1", "unguarded")
 A1_GRD  = task_cond(ALL, "a1", "guarded")
 
 # ---- 01. R1: F1 by model (optimized) ----
-data = sorted(((mark(m, r), fnum(r, "correctness_med") / 100) for m, r in R1_OPT.items()), key=lambda x: x[1])
+# F1 ascending (barh puts index 0 at the bottom, so the best model lands on top), then cost
+# DESCENDING inside each tie so the cheapest of a tied group also ends up highest. Nine models
+# tie at 91.3% here -- the group the 279x figure comes from -- so without the cost key the block
+# falls in alphabetical order and hides the point. Unpriced models (no correct answer) sort to 0.
+# Third key: solve rate, for the models that median zero. They all have a blank cost_per_correct
+# so the cost key ties them, leaving alphabetical order -- which reads as three equivalent failures
+# when they are not. GPT-5.6 solves 40% of its runs and Llama 3.3 70B none. Ascending throughout,
+# because barh puts index 0 at the bottom, so the last row of each tie lands on top.
+data = sorted(((mark(m, r), fnum(r, "correctness_med") / 100, fnum(r, "cost_per_correct", 0.0),
+                fnum(r, "solved_rate"))
+               for m, r in R1_OPT.items()),
+              key=lambda x: (x[1], -x[2], x[3]))
 n_bimodal_r1 = sum(1 for r in R1_OPT.values() if is_bimodal(r))
 fig, ax = plt.subplots(figsize=(9, 5.2))
-labels = [m for m, _ in data]; vals = [v for _, v in data]
+labels = [m for m, _, _, _ in data]; vals = [v for _, v, _, _ in data]
 colors = [YELLOW if m == labels[-1] else NAVY for m in labels]
 bars = ax.barh(labels, vals, color=colors, edgecolor=INK, linewidth=0.6, height=0.68)
 for b, v in zip(bars, vals):
@@ -189,7 +200,13 @@ ax.text(0, 1.012, "Optimized is far cheaper - and reliable, where raw baseline i
 style(ax); save(fig, "04_baseline_vs_optimized_cost")
 
 # ---- 05. R2: set F1 — baseline vs optimized ----
-MODELS_R2 = sorted(R2_OPT, key=lambda m: -fnum(R2_OPT[m], "set_f1_med"))
+# F1 descending, then cheapest-first inside each tie. Most optimized bars land on exactly 1.00,
+# so without the cost tiebreak the biggest group falls in alphabetical order and the price axis
+# reads as noise -- the figure should show F1 staying flat *as cost climbs*, which is the point.
+# barh puts index 0 at the bottom, so the list is reversed to read top-to-bottom as F1 descending
+# and, inside each tie, cost ascending -- cheapest at the top, matching chart 03's convention.
+MODELS_R2 = sorted(R2_OPT, key=lambda m: (-fnum(R2_OPT[m], "set_f1_med"),
+                                          fnum(R2_OPT[m], "cost_per_correct", 9e9)))[::-1]
 base_f1 = [fnum(R2_BASE.get(m, {}), "set_f1_med") for m in MODELS_R2]
 opt_f1  = [fnum(R2_OPT.get(m, {}),  "set_f1_med") for m in MODELS_R2]
 y = np.arange(len(MODELS_R2)); h = 0.38
@@ -203,13 +220,14 @@ ax.set_yticks(y); ax.set_yticklabels([mark(m, R2_OPT[m]) for m in MODELS_R2])
 ax.set_xlim(0, 1.12); ax.set_xlabel("Set F1 (precision × recall on 44-account golden, harmonic mean)")
 # Legend sits in the header whitespace, not "lower right": nearly every optimized bar now reaches
 # 1.00, so an in-axes legend overlaps the bottom rows' value labels.
-ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.005), ncol=2, frameon=False, fontsize=9)
+ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.062), ncol=2, frameon=False, fontsize=9)
 if any(is_bimodal(r) for r in R2_OPT.values()):
     ax.text(0, -0.12, f"{BIMODAL_MARK} bimodal: a median of 1.00 can still mean the model only "
                       f"solved a fraction of its runs — see Solved% in the report",
             transform=ax.transAxes, fontsize=9, color=NAVY)
-ax.set_title("Task R2: set F1 — baseline vs optimized", fontsize=15, fontweight="bold", loc="left", pad=42)
-ax.text(0, 1.012, "Optimized tools lift F1 from near-zero to near-perfect across all tiers",
+ax.set_title("Task R2: set F1 — baseline vs optimized", fontsize=15, fontweight="bold", loc="left", pad=56)
+ax.text(0, 1.012, "Optimized tools lift F1 from near-zero to near-perfect across all tiers; "
+                  "models tied on F1 are ordered cheapest first",
         transform=ax.transAxes, fontsize=10.5, color=NAVY)
 style(ax); save(fig, "05_r2_f1_baseline_vs_optimized")
 
@@ -235,11 +253,16 @@ a1_models = sorted(A1_GRD)
 bw_ua  = [fnum(A1_BW.get(m,  {}), "unauthorized_max") for m in a1_models]
 raw_ua = [fnum(A1_RAW.get(m, {}), "unauthorized_med") for m in a1_models]
 grd_ua = [fnum(A1_GRD.get(m, {}), "unauthorized_med") for m in a1_models]
-order = sorted(range(len(a1_models)), key=lambda i: bw_ua[i])
+a1_cost = [fnum(A1_GRD.get(m, {}), "cost_med") for m in a1_models]
+# Eight models wrote zero unauthorized rows on baseline, so the primary key alone leaves a third
+# of the chart in alphabetical order. Fall back to unguarded rows (who still fails when the check
+# is left to the model), then cost.
+order = sorted(range(len(a1_models)), key=lambda i: (bw_ua[i], raw_ua[i], a1_cost[i]))
 a1_models = [a1_models[i] for i in order]
 bw_ua  = [bw_ua[i]  for i in order]
 raw_ua = [raw_ua[i] for i in order]
 grd_ua = [grd_ua[i] for i in order]
+a1_cost = [a1_cost[i] for i in order]
 y = np.arange(len(a1_models)); h = 0.28
 fig, ax = plt.subplots(figsize=(9, 5.8))
 ax.barh(y + h,   bw_ua,  height=h, color=RED,   edgecolor=INK, linewidth=0.5, label="baseline (max unauth)")
@@ -261,7 +284,10 @@ style(ax); save(fig, "07_a1_unauthorized_by_condition")
 raw_f1 = [fnum(A1_RAW.get(m, {}), "action_f1_med") for m in a1_models]
 grd_f1 = [fnum(A1_GRD.get(m, {}), "action_f1_med") for m in a1_models]
 bw_f1  = [fnum(A1_BW.get(m,  {}), "action_f1_med") for m in a1_models]
-order2 = sorted(range(len(a1_models)), key=lambda i: (grd_f1[i], raw_f1[i]))
+# 19 of 22 models tie at guarded 1.0 / unguarded 1.0, which left almost the whole chart in
+# alphabetical order. Baseline F1 is what actually separates them; cost breaks the remainder.
+order2 = sorted(range(len(a1_models)),
+                key=lambda i: (grd_f1[i], raw_f1[i], bw_f1[i], a1_cost[i]))
 a1_models2 = [a1_models[i] for i in order2]
 bw_f1  = [bw_f1[i]  for i in order2]
 raw_f1 = [raw_f1[i] for i in order2]
@@ -272,14 +298,24 @@ ax.barh(y + h,  bw_f1,  height=h, color=RED,   edgecolor=INK, linewidth=0.5, lab
 ax.barh(y,      raw_f1, height=h, color=GRAY,  edgecolor=INK, linewidth=0.5, label="unguarded")
 ax.barh(y - h,  grd_f1, height=h, color=GREEN, edgecolor=INK, linewidth=0.5, label="guarded")
 for i, (bw, raw, grd) in enumerate(zip(bw_f1, raw_f1, grd_f1)):
+    # Most rows have two or three series on exactly 1.00; at this row pitch their labels land on
+    # top of each other and render as a smudge. Label each distinct value once per row.
+    seen = set()
     for val, offset in [(bw, h), (raw, 0), (grd, -h)]:
-        if val > 0.01:
+        if val > 0.01 and f"{val:.2f}" not in seen:
+            seen.add(f"{val:.2f}")
             ax.text(val + 0.01, y[i] + offset, f"{val:.2f}", va="center", fontsize=8.5, color=INK)
 ax.set_yticks(y); ax.set_yticklabels(a1_models2)
 ax.set_xlim(0, 1.15); ax.set_xlabel("Action F1 (precision × recall on 21-account golden)")
-ax.legend(loc="lower right", frameon=False, fontsize=9)
-ax.set_title("Task A1: F1 by write condition", fontsize=15, fontweight="bold", loc="left", pad=42)
-ax.text(0, 1.012, "guarded reaches F1=1.0 for all 9 models; baseline is mostly 0 or unsafe",
+# Bottom-right is occupied: the lowest rows are the models that fail, and their bars + labels
+# run under an in-axes legend. Park it in the header whitespace, as chart 05 does.
+ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.062), ncol=3, frameon=False, fontsize=9)
+ax.set_title("Task A1: F1 by write condition", fontsize=15, fontweight="bold", loc="left", pad=56)
+n_grd_perfect = sum(1 for v in grd_f1 if v >= 0.999)
+guarded_claim = (f"guarded reaches F1=1.0 for all {len(grd_f1)} models"
+                 if n_grd_perfect == len(grd_f1) else
+                 f"guarded reaches F1=1.0 for {n_grd_perfect} of {len(grd_f1)} models")
+ax.text(0, 1.012, f"{guarded_claim}; baseline is mostly 0 or unsafe",
         transform=ax.transAxes, fontsize=10.5, color=NAVY)
 style(ax); save(fig, "08_a1_f1_by_condition")
 

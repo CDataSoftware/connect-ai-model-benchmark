@@ -13,23 +13,45 @@
 #                   All benchmark runs have been well under 200K; lower tier used here.
 # NOTE: reasoning "effort"/"level"/"budget" are NOT equatable across providers.
 
+# --- tiers
+# `tier` is the model's CAPABILITY CLASS, not a price band. It records where the developer
+# positions the model in its own lineup, capped by whether that developer fields a
+# frontier-class model in this set:
+#   economy   the developer's efficiency line   (Haiku, GPT mini/Luna, Flash-Lite, Mistral
+#             Small, Qwen 9B, Llama 70B, DeepSeek Flash)
+#   mid       the mainstream workhorse line     (Gemini Flash, Mistral Large, DeepSeek Pro,
+#             Qwen Max, Sonnet 4.6, Grok 4.3)
+#   frontier  the developer's top reasoning model, and only where that developer fields one
+#             here (Sonnet 5, Opus 4.8/5, Fable 5, GPT-5.5/5.6, Grok 4.6)
+# The cap is why Mistral Large and Qwen 3.7 Max sit at mid: each is its developer's flagship,
+# but neither developer fields a frontier-class entry in this set.
+#
+# Deliberately NOT derived at runtime:
+#   - price does not reproduce these labels (Sonnet 4.6 costs $3.00/MTok at mid; Sonnet 5
+#     costs $2.00 at frontier). Deriving tier from price would also make the whitepaper's
+#     "same answer across every tier" claim circular.
+#   - model names do not either: "Flash" is Google's workhorse but DeepSeek's small variant.
+#
+# These values are FROZEN to match Table 1 of the published MCP cost whitepaper (Sep 2026).
+# Changing one changes a published figure; add new models by the definition above instead.
+
 # --- models
 models:
-  - { id: claude-haiku-4-5,      provider: anthropic, label: Haiku 4.5,        price_input_per_mtok: 1.00, price_cached_input_per_mtok: 0.10,  price_output_per_mtok: 5.00,  thinking_budget: 2048 }
-  - { id: claude-sonnet-4-6,     provider: anthropic, label: Sonnet 4.6,       price_input_per_mtok: 3.00, price_cached_input_per_mtok: 0.30,  price_output_per_mtok: 15.00, thinking_budget: 2048 }
-  - { id: claude-sonnet-5,       provider: anthropic, label: Sonnet 5,         price_input_per_mtok: 2.00, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 10.00, thinking_budget: 2048 }
-  - { id: claude-opus-4-8,       provider: anthropic, label: Opus 4.8,         price_input_per_mtok: 5.00, price_cached_input_per_mtok: 0.50,  price_output_per_mtok: 25.00, thinking_budget: 2048 }
-  - { id: gpt-5.5,               provider: openai,    label: GPT-5.5,          price_input_per_mtok: 5.00, price_cached_input_per_mtok: 0.50,  price_output_per_mtok: 30.00, reasoning_effort: low }
-  - { id: gpt-5.4-mini,          provider: openai,    label: GPT-5.4 mini,     price_input_per_mtok: 0.75, price_cached_input_per_mtok: 0.075, price_output_per_mtok: 4.50,  reasoning_effort: low }
-  - { id: gemini-3.5-flash,      provider: google,    label: Gemini 3.5 Flash, price_input_per_mtok: 1.50, price_cached_input_per_mtok: 0.15,  price_output_per_mtok: 9.00,  thinking_level: low }
-  - { id: gemini-3.1-flash-lite, provider: google,    label: Gemini 3.1 Flash-Lite, price_input_per_mtok: 0.25, price_cached_input_per_mtok: 0.025, price_output_per_mtok: 1.50, thinking_level: low }
-  - { id: grok-4.3,              provider: xai,       label: Grok 4.3,         price_input_per_mtok: 1.25, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 2.50,  reasoning_effort: low }
-  - { id: claude-fable-5,        provider: anthropic, label: Fable 5,          price_input_per_mtok: 10.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 50.00, thinking_budget: 2048 }
-  - { id: claude-opus-5,         provider: anthropic, label: Opus 5,           price_input_per_mtok: 5.00,  price_cached_input_per_mtok: 0.50, price_output_per_mtok: 25.00, thinking_budget: 2048 }
-  - { id: gpt-5.6,               provider: openai,    label: GPT-5.6,          price_input_per_mtok: 4.00,  price_cached_input_per_mtok: 0.40, price_output_per_mtok: 20.00, reasoning_effort: low }
-  - { id: gpt-5.6-luna,          provider: openai,    label: GPT-5.6 Luna,     price_input_per_mtok: 0.20,  price_cached_input_per_mtok: 0.02, price_output_per_mtok: 1.20,  reasoning_effort: low }
-  - { id: gemini-3.7-flash,      provider: google,    label: Gemini 3.7 Flash, price_input_per_mtok: 0.75,  price_cached_input_per_mtok: 0.075, price_output_per_mtok: 3.75, thinking_level: low }
-  - { id: grok-4.6,              provider: xai,       label: Grok 4.6,         price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.50, price_output_per_mtok: 6.00,  reasoning_effort: low }
+  - { id: claude-haiku-4-5,      provider: anthropic, tier: economy, label: Haiku 4.5,        price_input_per_mtok: 1.00, price_cached_input_per_mtok: 0.10,  price_output_per_mtok: 5.00,  thinking_budget: 2048 }
+  - { id: claude-sonnet-4-6,     provider: anthropic, tier: mid, label: Sonnet 4.6,       price_input_per_mtok: 3.00, price_cached_input_per_mtok: 0.30,  price_output_per_mtok: 15.00, thinking_budget: 2048 }
+  - { id: claude-sonnet-5,       provider: anthropic, tier: frontier, label: Sonnet 5,         price_input_per_mtok: 2.00, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 10.00, thinking_budget: 2048 }
+  - { id: claude-opus-4-8,       provider: anthropic, tier: frontier, label: Opus 4.8,         price_input_per_mtok: 5.00, price_cached_input_per_mtok: 0.50,  price_output_per_mtok: 25.00, thinking_budget: 2048 }
+  - { id: gpt-5.5,               provider: openai, tier: frontier,    label: GPT-5.5,          price_input_per_mtok: 5.00, price_cached_input_per_mtok: 0.50,  price_output_per_mtok: 30.00, reasoning_effort: low }
+  - { id: gpt-5.4-mini,          provider: openai, tier: economy,    label: GPT-5.4 mini,     price_input_per_mtok: 0.75, price_cached_input_per_mtok: 0.075, price_output_per_mtok: 4.50,  reasoning_effort: low }
+  - { id: gemini-3.5-flash,      provider: google, tier: mid,    label: Gemini 3.5 Flash, price_input_per_mtok: 1.50, price_cached_input_per_mtok: 0.15,  price_output_per_mtok: 9.00,  thinking_level: low }
+  - { id: gemini-3.1-flash-lite, provider: google, tier: economy,    label: Gemini 3.1 Flash-Lite, price_input_per_mtok: 0.25, price_cached_input_per_mtok: 0.025, price_output_per_mtok: 1.50, thinking_level: low }
+  - { id: grok-4.3,              provider: xai, tier: mid,       label: Grok 4.3,         price_input_per_mtok: 1.25, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 2.50,  reasoning_effort: low }
+  - { id: claude-fable-5,        provider: anthropic, tier: frontier, label: Fable 5,          price_input_per_mtok: 10.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 50.00, thinking_budget: 2048 }
+  - { id: claude-opus-5,         provider: anthropic, tier: frontier, label: Opus 5,           price_input_per_mtok: 5.00,  price_cached_input_per_mtok: 0.50, price_output_per_mtok: 25.00, thinking_budget: 2048 }
+  - { id: gpt-5.6,               provider: openai, tier: frontier,    label: GPT-5.6,          price_input_per_mtok: 4.00,  price_cached_input_per_mtok: 0.40, price_output_per_mtok: 20.00, reasoning_effort: low }
+  - { id: gpt-5.6-luna,          provider: openai, tier: economy,    label: GPT-5.6 Luna,     price_input_per_mtok: 0.20,  price_cached_input_per_mtok: 0.02, price_output_per_mtok: 1.20,  reasoning_effort: low }
+  - { id: gemini-3.7-flash,      provider: google, tier: mid,    label: Gemini 3.7 Flash, price_input_per_mtok: 0.75,  price_cached_input_per_mtok: 0.075, price_output_per_mtok: 3.75, thinking_level: low }
+  - { id: grok-4.6,              provider: xai, tier: frontier,       label: Grok 4.6,         price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.50, price_output_per_mtok: 6.00,  reasoning_effort: low }
 
 # Open / self-hosted models via OpenAI-compatible endpoints.
 # Set provider: openai_compat, base_url: <endpoint>, and api_key_env: <env-var-name>.
@@ -42,29 +64,29 @@ models:
   - { id: meta-llama/Llama-3.3-70B-Instruct-Turbo, provider: openai_compat,
       label: Llama 3.3 70B (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 1.04, price_cached_input_per_mtok: 1.04, price_output_per_mtok: 1.04 }
+      price_input_per_mtok: 1.04, price_cached_input_per_mtok: 1.04, price_output_per_mtok: 1.04, tier: economy }
 
   - { id: deepseek-ai/DeepSeek-V4-Flash-0731, provider: openai_compat,
       label: DeepSeek V4 Flash (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 0.14, price_cached_input_per_mtok: 0.14, price_output_per_mtok: 0.28 }
+      price_input_per_mtok: 0.14, price_cached_input_per_mtok: 0.14, price_output_per_mtok: 0.28, tier: economy }
 
   - { id: deepseek-ai/DeepSeek-V4-Pro-0813, provider: openai_compat,
       label: DeepSeek V4 Pro (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 1.32, price_cached_input_per_mtok: 1.32, price_output_per_mtok: 3.96 }
+      price_input_per_mtok: 1.32, price_cached_input_per_mtok: 1.32, price_output_per_mtok: 3.96, tier: mid }
 
   # max_tokens: still truncated 3 curated runs at the 16384 default (it reasons verbosely for a
   # 9B model), which zeroed two of them. Raised here; the runner degrades if the endpoint refuses.
   - { id: Qwen/Qwen3.5-9B, provider: openai_compat,
       label: Qwen 3.5 9B (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1, max_tokens: 32768,
-      price_input_per_mtok: 0.17, price_cached_input_per_mtok: 0.17, price_output_per_mtok: 0.25 }
+      price_input_per_mtok: 0.17, price_cached_input_per_mtok: 0.17, price_output_per_mtok: 0.25, tier: economy }
 
   - { id: Qwen/Qwen3.7-Max, provider: openai_compat,
       label: Qwen 3.7 Max (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1, stream: true,
-      price_input_per_mtok: 1.25, price_cached_input_per_mtok: 1.25, price_output_per_mtok: 3.75 }
+      price_input_per_mtok: 1.25, price_cached_input_per_mtok: 1.25, price_output_per_mtok: 3.75, tier: mid }
 
 # Mistral — via api.mistral.ai (OpenAI-compatible). Requires MISTRAL_API_KEY.
 # Mistral does not bill cached tokens separately; price_cached_input_per_mtok = price_input_per_mtok.
@@ -72,12 +94,12 @@ models:
   - { id: mistral-large-latest, provider: openai_compat,
       label: Mistral Large (mistral.ai), api_key_env: MISTRAL_API_KEY,
       base_url: https://api.mistral.ai/v1,
-      price_input_per_mtok: 0.50, price_cached_input_per_mtok: 0.50, price_output_per_mtok: 1.50 }
+      price_input_per_mtok: 0.50, price_cached_input_per_mtok: 0.50, price_output_per_mtok: 1.50, tier: mid }
 
   - { id: mistral-small-latest, provider: openai_compat,
       label: Mistral Small (mistral.ai), api_key_env: MISTRAL_API_KEY,
       base_url: https://api.mistral.ai/v1,
-      price_input_per_mtok: 0.10, price_cached_input_per_mtok: 0.10, price_output_per_mtok: 0.30 }
+      price_input_per_mtok: 0.10, price_cached_input_per_mtok: 0.10, price_output_per_mtok: 0.30, tier: economy }
 
 # Local (Ollama) — uncomment if running models locally:
 #  - { id: llama3.3:70b, provider: openai_compat,

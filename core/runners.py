@@ -84,8 +84,14 @@ def _blank(model, provider, condition, run_idx):
             "model_time_s": 0.0, "mcp_time_s": 0.0, "wall_s": 0.0,
             # transparency: exactly which knobs this run actually ran with
             "turn_cap": None, "temperature_requested": None, "temperature_applied": None,
-            "reasoning_mode": None, "thinking_chars": 0,
+            "reasoning_mode": None, "thinking_chars": 0, "resolved_model": None,
             "trace": [], "final_answer": "", "error": None, "error_class": None}
+
+
+def _served_by(rec, name):
+    """Record the model id the provider reports serving (resolves aliases on OpenAI)."""
+    if name:
+        rec["resolved_model"] = name
 
 
 # ---------- OpenAI (Responses API - required for function tools + reasoning) ----------
@@ -135,6 +141,7 @@ def run_openai(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, rea
             resp = create(inp, prev_id)
             rec["model_time_s"] += time.perf_counter() - t0
             prev_id = resp.id
+            _served_by(rec, getattr(resp, "model", None))
             u = resp.usage
             it = int(getattr(u, "input_tokens", 0) or 0); ot = int(getattr(u, "output_tokens", 0) or 0)
             cached = int(getattr(getattr(u, "input_tokens_details", None), "cached_tokens", 0) or 0)
@@ -218,6 +225,7 @@ def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thi
             t0 = time.perf_counter()
             resp = _retry(lambda: client.models.generate_content(model=model, contents=contents, config=config))
             rec["model_time_s"] += time.perf_counter() - t0
+            _served_by(rec, getattr(resp, "model_version", None))
             um = resp.usage_metadata
             pt = int(getattr(um, "prompt_token_count", 0) or 0)
             cached = int(getattr(um, "cached_content_token_count", 0) or 0)
@@ -321,6 +329,7 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
             for b in resp.content:  # accumulate thinking effort (proxy)
                 if getattr(b, "type", None) == "thinking":
                     rec["thinking_chars"] += len(getattr(b, "thinking", "") or "")
+            _served_by(rec, getattr(resp, "model", None))
             u = resp.usage
             it = int(getattr(u, "input_tokens", 0) or 0); ot = int(getattr(u, "output_tokens", 0) or 0)
             cread = int(getattr(u, "cache_read_input_tokens", 0) or 0); ccreate = int(getattr(u, "cache_creation_input_tokens", 0) or 0)
@@ -385,6 +394,8 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
         chunks = list(_retry(lambda: client.chat.completions.create(
             **base, stream=True, stream_options={"include_usage": True})))
         content = ""; tcs = {}; finish = None; usage = None
+        if chunks:
+            _served_by(rec, getattr(chunks[0], "model", None))
         for chunk in chunks:
             if chunk.usage:
                 usage = chunk.usage
@@ -436,6 +447,7 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
                 content, tool_calls_raw, u, finish_reason = resp
             else:
                 msg = resp.choices[0].message; finish_reason = resp.choices[0].finish_reason
+                _served_by(rec, getattr(resp, "model", None))
                 content = msg.content; tool_calls_raw = None; u = resp.usage
                 if msg.tool_calls:
                     tool_calls_raw = [{"id": tc.id, "type": "function",
@@ -502,6 +514,7 @@ def run_grok(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, reaso
         for turn in range(1, turn_cap + 1):
             rec["turns"] = turn
             t0 = time.perf_counter(); resp = create(messages); rec["model_time_s"] += time.perf_counter() - t0
+            _served_by(rec, getattr(resp, "model", None))
             u = resp.usage
             pt = int(getattr(u, "prompt_tokens", 0) or 0); ct = int(getattr(u, "completion_tokens", 0) or 0)
             cached = int(getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", 0) or 0)

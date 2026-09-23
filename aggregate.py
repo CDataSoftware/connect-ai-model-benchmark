@@ -26,7 +26,9 @@ def _model_labels():
     try:
         import yaml
         cfg = yaml.safe_load(open(os.path.join(HERE, "config", "models.yaml"), encoding="utf-8"))
-        return {m["id"]: m["label"] for m in cfg.get("models", []) if m.get("label")}
+        # retired_models keeps labels for ids that have committed results but no longer run.
+        entries = list(cfg.get("models", [])) + list(cfg.get("retired_models", []))
+        return {m["id"]: m["label"] for m in entries if m.get("label")}
     except Exception:
         return {}
 

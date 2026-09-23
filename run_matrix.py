@@ -14,6 +14,7 @@ back over the harness's own credentials -- never through the toolkit under test.
   python3 run_matrix.py --task r2       # one task (repeatable)
   python3 run_matrix.py --model gpt-5.5 # one model  (repeatable)
   python3 run_matrix.py --dry-run       # print the plan and exit
+  python3 run_matrix.py --skip-price-check   # run despite a live-price mismatch
   python3 run_matrix.py --task a1 --model grok-4.3 --runs 1 --out-dir results/smoke
                                         # cheap end-to-end smoke test, kept out of the real matrix
 """
@@ -22,7 +23,7 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from core import mcp_client, runners, scorer, verifier
+from core import mcp_client, pricing, runners, scorer, verifier
 from core.envutil import load_env
 load_env(os.path.join(HERE, ".env"))
 
@@ -107,6 +108,8 @@ def main():
     ap.add_argument("--runs", type=int, help="override runs-per-condition (for smoke tests)")
     ap.add_argument("--out-dir", help="write run JSON here instead of results/matrix")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--skip-price-check", action="store_true",
+                    help="run even if configured prices differ from live provider prices")
     args = ap.parse_args()
 
     results_dir = os.path.join(HERE, args.out_dir) if args.out_dir else RESULTS
@@ -119,6 +122,17 @@ def main():
     if not models:
         raise SystemExit(f"no models matched {args.model}")
     tasks = [load_task(t) for t in tasks]
+
+    floating = pricing.unpinned(models)
+    if floating:
+        raise SystemExit(f"!! unpinned model ids (pin an explicit version): {', '.join(floating)}")
+    verified, problems, unverified = pricing.check(models)
+    print(f"Prices: {len(verified)} verified live, {len(unverified)} config-only (no provider price API)")
+    for p in problems:
+        print(f"!! price check: {p}")
+    if problems and not args.skip_price_check:
+        raise SystemExit("!! fix config/models.yaml, or re-run with --skip-price-check")
+    verified = set(verified)
 
     # skip conditions explicitly disabled in the config (e.g. guarded while its tool is broken)
     plan = []
@@ -228,6 +242,12 @@ def main():
                     rec["score"] = score_run(task, rec, queue_rows)
                 rec["label"] = m["label"]; rec["mcp_url"] = url
                 rec["cost_usd"] = cost(rec, m) if not rec.get("error") else None
+                rec["price_per_mtok"] = {"input": m["price_input_per_mtok"],
+                                         "cached": m.get("price_cached_input_per_mtok", m["price_input_per_mtok"] * 0.1),
+                                         "output": m["price_output_per_mtok"]}
+                rec["price_verified_live"] = m["id"] in verified
+                if rec.get("resolved_model") and rec["resolved_model"] != m["id"]:
+                    print(f"    !! {m['id']} was served by {rec['resolved_model']}", flush=True)
                 json.dump(rec, open(path, "w"), indent=2, default=str)
                 s = rec.get("score") or {}
                 if is_action:

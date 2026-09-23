@@ -170,7 +170,8 @@ global instructions on `executeProcedure`) to every Management MCP write tool to
    certainly doesn't match what's live — do not proceed to the matrix until it passes.
 10. Run `python run_matrix.py --dry-run` first, always — confirm the plan before any model
     spend. Then scope a cheap smoke test (`--runs 1 --out-dir results/smoke`) before the full
-    matrix.
+    matrix. The dry run stops on unpinned model ids (`-latest`) and on any Together or xAI price
+    that differs from `models.yaml`; fix the config rather than passing `--skip-price-check`.
 
 ## Known pitfalls worth surfacing proactively
 

@@ -280,6 +280,9 @@ write-up in the PDF report.
 4. `python run_matrix.py --dry-run` — confirm the plan (tasks × conditions × runs) before spending.
 5. `python run_matrix.py` — full matrix (resumable; skips completed runs). Scope it with
    `--task r2`, `--model gpt-5.6`, or smoke-test cheaply with `--runs 1 --out-dir results/smoke`.
+   `--effort X` runs every selected model at one reasoning level instead of each model's configured
+   list; aggregate with `python aggregate.py --effort X` (or `--effort configured`) so a spread
+   compares models at one level per model.
 6. `python aggregate.py` → `python export_raw.py` → `python charts.py` → `python build_pdf.py` (outputs `results/CData_ConnectAI_Model_Benchmark.pdf`).
    (These recompute every score from each run's saved artifact — answer text, or the post-run
    snapshot of the write target — so they always reflect the current scorer, and a scorer fix applies

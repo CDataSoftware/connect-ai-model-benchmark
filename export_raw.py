@@ -17,7 +17,7 @@ from core import scorer, tasks as tasklib
 
 MATRIX = os.path.join(HERE, "results", "matrix")
 
-COMMON = ["task", "model", "provider", "condition", "run", "correctness", "outcome",
+COMMON = ["task", "model", "effort", "provider", "condition", "run", "correctness", "outcome",
           "cost_usd", "cost_per_correct"]
 READ_COLS = ["trajectory", "productive_calls", "redundant_calls", "irrelevant_calls",
              "set_recall", "set_precision", "set_f1", "overlap_at_50", "rank_corr",
@@ -49,7 +49,7 @@ def main():
         l1 = s.get("layer1_accuracy")
         cost = r.get("cost_usd")
         row = {
-            "task": task_id, "model": r.get("model"), "provider": r.get("provider"),
+            "task": task_id, "model": r.get("model"), "effort": r.get("effort"), "provider": r.get("provider"),
             "condition": r.get("condition"), "run": r.get("run"),
             "correctness": l1, "outcome": tasklib.outcome(r, s, task),
             "cost_usd": cost,

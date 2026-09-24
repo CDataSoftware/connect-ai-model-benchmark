@@ -11,9 +11,11 @@ For the ACTION task (A1) correctness is action F1 + reason accuracy, and the hea
 than blended, since averaging a safety violation into an accuracy score hides exactly the thing the
 governance claim is about.
 
-Run after the matrix completes.
+Run after the matrix completes. `--effort X` aggregates only runs at reasoning level X, and
+`--effort configured` only runs at each model's configured level(s) in models.yaml. Use one of them
+for the headline spreads whenever the results also hold sweep runs.
 """
-import csv, json, os, statistics, sys
+import argparse, csv, json, os, statistics, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -33,6 +35,19 @@ def _model_labels():
         return {}
 
 MODEL_LABELS = _model_labels()
+
+
+def _configured_efforts():
+    try:
+        import yaml
+        cfg = yaml.safe_load(open(os.path.join(HERE, "config", "models.yaml"), encoding="utf-8"))
+        out = {}
+        for m in cfg.get("models", []):
+            e = m.get("effort", "default")
+            out[m["id"]] = set(e) if isinstance(e, list) else {e}
+        return out
+    except Exception:
+        return {}
 
 
 def med(xs):
@@ -100,17 +115,38 @@ def display_label(rec):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--effort", help="aggregate only runs at this reasoning level, or 'configured' "
+                    "for each model's configured level(s)")
+    args = ap.parse_args()
+
     TASKS = tasklib.load_tasks()
     recs = load(MATRIX)
+    if args.effort == "configured":
+        conf = _configured_efforts()
+        recs = {t: r for t, r in recs.items() if r.get("effort") in conf.get(r.get("model"), ())}
+    elif args.effort:
+        recs = {t: r for t, r in recs.items() if r.get("effort") == args.effort}
+    # a model run at several levels gets one row per level, labelled "Model @level"
+    levels = {}
+    for r in recs.values():
+        levels.setdefault(display_label(r), set()).add(r.get("effort"))
+    multi = sorted(l for l, v in levels.items() if len(v) > 1)
+    if multi:
+        print(f"!! several effort levels for: {', '.join(multi)} -- for headline spreads, aggregate "
+              f"with --effort configured (or one level)")
     cells = {}
     for tag, r in recs.items():
         if r.get("error"):
             continue
-        key = (tasklib.task_of(r), display_label(r), r["provider"], r["condition"])
+        label = display_label(r)
+        if label in multi:
+            label = f"{label} @{r.get('effort')}"
+        key = (tasklib.task_of(r), label, r["provider"], r["condition"], r.get("effort"))
         cells.setdefault(key, []).append((tag, r))
 
     rows = []
-    for (task_id, label, prov, cond), items in sorted(cells.items()):
+    for (task_id, label, prov, cond, effort), items in sorted(cells.items(), key=lambda kv: tuple(str(x) for x in kv[0])):
         task = TASKS.get(task_id)
         scored = [tasklib.rescore(r, TASKS) for _, r in items]
         outcomes = [tasklib.outcome(r, s, task) for s, (_, r) in zip(scored, items)]
@@ -131,7 +167,7 @@ def main():
         cost = round(cost_exact, 6)
         cpc = round(cost_exact / (correctness / 100), 6) if correctness > 0 else None
         row = {
-            "task": task_id, "model": label, "provider": prov, "condition": cond, "runs": len(items),
+            "task": task_id, "model": label, "effort": effort, "provider": prov, "condition": cond, "runs": len(items),
             "correctness_med": correctness,
             "cost_med": cost, "cost_per_correct": cpc, "cost_med_per_1k_q": round(med(costs) * 1000, 2),
             "tokens_med": int(med(toks)), "reasoning_med": int(med(reason)),

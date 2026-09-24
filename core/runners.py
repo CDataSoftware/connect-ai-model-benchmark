@@ -269,12 +269,13 @@ def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thi
 
 
 # ---------- Anthropic (Messages API) ----------
-def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, thinking_budget=None, temperature=None, **kw):
+def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, thinking_budget=None, effort=None, temperature=None, **kw):
     from anthropic import Anthropic
     client = Anthropic(api_key=api_key)
     rec = _blank(model, "anthropic", condition, run_idx)
     rec["turn_cap"] = turn_cap; rec["temperature_requested"] = temperature
-    rec["reasoning_mode"] = f"thinking_budget={thinking_budget}" if thinking_budget else "off"
+    rec["reasoning_mode"] = (f"adaptive(effort={effort})" if effort else
+                             f"thinking_budget={thinking_budget}" if thinking_budget else "provider_default")
     # Extended thinking: budget_tokens must be < max_tokens; thinking tokens are billed inside
     # output_tokens (no separate usage field), so cost already accounts for them. thinking_chars
     # is a transparency proxy for effort since Anthropic doesn't report thinking-token counts.
@@ -282,7 +283,10 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
     # Opus 4.8) reject that with a 400 and require {adaptive, display:summarized} + output_config.
     # effort. We try manual first and flip to adaptive once per run on that specific 400.
     max_toks = max(16384, (thinking_budget or 0) + 8192)
-    think = {"mode": "enabled" if thinking_budget else None}  # may flip to "adaptive"
+    # effort -> adaptive thinking at that level; thinking_budget -> manual thinking (Haiku 4.5),
+    # flipping to adaptive on the 400 newer models return; neither -> the model's own default.
+    think = {"mode": "adaptive" if effort else "enabled" if thinking_budget else None,
+             "effort": effort or "low"}
     tools = [{"name": t["name"], "description": (t.get("description") or "")[:1024],
               "input_schema": t.get("inputSchema") or t.get("input_schema") or {"type": "object", "properties": {}}}
              for t in mcp.list_tools()]
@@ -302,7 +306,7 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
                     kw["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
                 elif think["mode"] == "adaptive":
                     kw["thinking"] = {"type": "adaptive", "display": "summarized"}  # display -> thinking_chars visible
-                    kw["output_config"] = {"effort": "low"}
+                    kw["output_config"] = {"effort": think["effort"]}
                 elif temp is not None:
                     kw["temperature"] = temp
                 return _retry(lambda: client.messages.create(**kw))
@@ -311,7 +315,7 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
                     resp = _mc(None)
                 except Exception as e:
                     if think["mode"] == "enabled" and "adaptive" in str(e).lower():
-                        think["mode"] = "adaptive"; rec["reasoning_mode"] = "adaptive(effort=low)"
+                        think["mode"] = "adaptive"; rec["reasoning_mode"] = f"adaptive(effort={think['effort']})"
                         resp = _mc(None)
                     else:
                         raise

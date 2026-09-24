@@ -24,6 +24,7 @@ Accuracy is on a **0-100** scale unless noted. "Query"/"q" = one full task attem
 | Column | Meaning |
 |---|---|
 | `model` | Model under test (e.g. `gemini-3.5-flash`). |
+| `effort` | Reasoning level the run used: `default` (provider default), `low`, `medium`, `high`, `xhigh` or `max`. Blank for runs before this field existed, which ran at the levels in that edition's `models.yaml`. |
 | `provider` | `anthropic` / `openai` / `google` / `xai`. |
 | `task` | Which benchmark task the run belongs to. `r1` = health/eligibility read. `r2` = composition read (health **and** usage trend). `a1` = write-back task (queue reviews into `REVIEW_QUEUE`). R1 runs predate the task field in the filename format and are backfilled as `r1`. |
 | `condition` | Read tasks: `baseline` = raw federation, universal tools only, model derives the business logic itself; `optimized` = curated Connect AI Toolkit. Write task (a1): `baseline` = raw tables + generic `execute_insert`; `unguarded` = curated read tools + unvalidated write tool; `guarded` = same but with server-side validation (see docs/HARNESS_AND_PROMPTS.md). |

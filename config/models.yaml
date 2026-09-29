@@ -1,4 +1,4 @@
-# Model matrix — 25 models, 12 developers.
+# Model matrix — 26 models, 12 developers.
 # NOTE: `provider` below is the API DIALECT the harness speaks (anthropic/openai/google/xai/
 # openai_compat), not the model's developer and not its host. Open-weight models are served by
 # Together.ai but built by Meta, DeepSeek, Alibaba and others; see the README model table.
@@ -28,7 +28,7 @@
 #   mid       the mainstream workhorse line     (Gemini Flash, Mistral Large, DeepSeek Pro,
 #             Qwen Max, GLM-5.3, Grok 4.3)
 #   frontier  the developer's top reasoning model, and only where that developer fields one
-#             here (Sonnet 5, Opus 5.5, Fable 5/5.1, GPT-6 Sol/Astra, Grok 4.7, Kimi K3, Inkling)
+#             here (Sonnet 5/5.5, Opus 5.5, Fable 5/5.1, GPT-6 Sol/Astra, Grok 4.7, Kimi K3, Inkling)
 # The cap is why Mistral Large and Qwen 3.7 Max sit at mid: each is its developer's flagship,
 # but neither developer fields a frontier-class entry in this set.
 #
@@ -45,6 +45,7 @@
 models:
   - { id: claude-haiku-4-5,      provider: anthropic, tier: economy, label: Haiku 4.5,        price_input_per_mtok: 1.00, price_cached_input_per_mtok: 0.10,  price_output_per_mtok: 5.00,  thinking_budget: 2048, effort: default }
   - { id: claude-sonnet-5,       provider: anthropic, tier: frontier, label: Sonnet 5,         price_input_per_mtok: 2.00, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 10.00, effort: low }
+  - { id: claude-sonnet-5-5,     provider: anthropic, tier: frontier, label: Sonnet 5.5,       price_input_per_mtok: 2.00, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 10.00, effort: low }
   - { id: gemini-3.1-flash-lite, provider: google, tier: economy,    label: Gemini 3.1 Flash-Lite, price_input_per_mtok: 0.25, price_cached_input_per_mtok: 0.025, price_output_per_mtok: 1.50, effort: low }
   - { id: grok-4.3,              provider: xai, tier: mid,       label: Grok 4.3,         price_input_per_mtok: 1.25, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 2.50,  effort: low }
   # Fable 5 is kept for this edition only, as the published R2 ceiling; Fable 5.1 replaces it.

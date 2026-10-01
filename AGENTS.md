@@ -171,7 +171,9 @@ global instructions on `executeProcedure`) to every Management MCP write tool to
 10. Run `python run_matrix.py --dry-run` first, always — confirm the plan before any model
     spend. Then scope a cheap smoke test (`--runs 1 --out-dir results/smoke`) before the full
     matrix. The dry run stops on unpinned model ids (`-latest`) and on any Together or xAI price
-    that differs from `models.yaml`; fix the config rather than passing `--skip-price-check`.
+    that differs from `models.yaml`; fix the config rather than passing `--skip-price-check`. If an
+    endpoint is a Connect AI Tool Server, the dry run asks for `python -m core.mcp_oauth login` --
+    a browser login the user has to complete; don't attempt it on their behalf.
 
 ## Known pitfalls worth surfacing proactively
 

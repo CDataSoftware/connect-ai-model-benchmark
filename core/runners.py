@@ -88,6 +88,17 @@ def _blank(model, provider, condition, run_idx):
             "trace": [], "final_answer": "", "error": None, "error_class": None}
 
 
+# Tool results reach the model truncated at 8,000 characters. search_context gets a larger budget:
+# it returns whole context documents, and real MCP clients allow far more than 8,000.
+TOOL_RESULT_CHARS = 8000
+SEARCH_CONTEXT_CHARS = 32000
+
+
+def _tool_text(mcp, tool_name, result):
+    limit = SEARCH_CONTEXT_CHARS if tool_name.endswith("search_context") else TOOL_RESULT_CHARS
+    return mcp.result_text(result, max_chars=limit)
+
+
 def _served_by(rec, name):
     """Record the model id the provider reports serving (resolves aliases on OpenAI)."""
     if name:
@@ -163,7 +174,7 @@ def run_openai(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, rea
                 t1 = time.perf_counter()
                 result = mcp.call_tool(item.name, args)
                 dt = time.perf_counter() - t1; rec["mcp_time_s"] += dt
-                body = mcp.result_text(result)
+                body = _tool_text(mcp, item.name, result)
                 rec["trace"].append({"turn": turn, "tool": item.name, "args": args, "result_chars": len(body), "mcp_s": round(dt, 2)})
                 outputs.append({"type": "function_call_output", "call_id": item.call_id, "output": body})
             inp = outputs  # server keeps context via previous_response_id
@@ -249,7 +260,7 @@ def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thi
                 t1 = time.perf_counter()
                 result = mcp.call_tool(fc.name, args)
                 dt = time.perf_counter() - t1; rec["mcp_time_s"] += dt
-                body = mcp.result_text(result)
+                body = _tool_text(mcp, fc.name, result)
                 rec["trace"].append({"turn": turn, "tool": fc.name, "args": args, "result_chars": len(body), "mcp_s": round(dt, 2)})
                 resp_parts.append(types.Part.from_function_response(name=fc.name, response={"result": body}))
             contents.append(types.Content(role="user", parts=resp_parts))
@@ -350,7 +361,7 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
                 rec["tool_calls"] += 1
                 args = dict(tu.input or {})
                 t1 = time.perf_counter(); result = mcp.call_tool(tu.name, args); dt = time.perf_counter() - t1; rec["mcp_time_s"] += dt
-                body = mcp.result_text(result)
+                body = _tool_text(mcp, tu.name, result)
                 rec["trace"].append({"turn": turn, "tool": tu.name, "args": args, "result_chars": len(body), "mcp_s": round(dt, 2)})
                 results.append({"type": "tool_result", "tool_use_id": tu.id, "content": body})
             messages.append({"role": "user", "content": results})
@@ -475,7 +486,7 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
                     args = {}
                 fn = tc["function"]["name"]; tc_id = tc["id"]
                 t1 = time.perf_counter(); result = mcp.call_tool(fn, args); dt = time.perf_counter() - t1; rec["mcp_time_s"] += dt
-                body = mcp.result_text(result)
+                body = _tool_text(mcp, fn, result)
                 rec["trace"].append({"turn": turn, "tool": fn, "args": args, "result_chars": len(body), "mcp_s": round(dt, 2)})
                 messages.append({"role": "tool", "tool_call_id": tc_id, "content": body})
             if turn == turn_cap:
@@ -537,7 +548,7 @@ def run_grok(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, reaso
                 except Exception:
                     args = {}
                 t1 = time.perf_counter(); result = mcp.call_tool(tc.function.name, args); dt = time.perf_counter() - t1; rec["mcp_time_s"] += dt
-                body = mcp.result_text(result)
+                body = _tool_text(mcp, tc.function.name, result)
                 rec["trace"].append({"turn": turn, "tool": tc.function.name, "args": args, "result_chars": len(body), "mcp_s": round(dt, 2)})
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": body})
             if turn == turn_cap:

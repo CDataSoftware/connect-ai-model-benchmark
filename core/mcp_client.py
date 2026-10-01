@@ -1,6 +1,12 @@
-"""SSE-aware MCP JSON-RPC client for Connect AI (baseline general + optimized toolkit)."""
+"""SSE-aware MCP JSON-RPC client for Connect AI (toolkits and Tool Servers).
+
+Toolkits authenticate with HTTP Basic (email + PAT). Tool Servers answer that with an OAuth
+challenge; the client then switches to the bearer token cached by `python3 -m core.mcp_oauth login`.
+"""
 import base64, json, time, uuid
 import requests
+
+from core import mcp_oauth
 
 
 class MCPError(RuntimeError):
@@ -17,21 +23,37 @@ class MCPClient:
             "Accept": "application/json, text/event-stream",
         }
         self.timeout = timeout
+        self.oauth = False
+
+    def _post(self, method, payload):
+        # Retry transient network faults (DNS/connection drop, read timeout) with backoff so a
+        # brief wifi blip mid-trajectory doesn't kill the whole run.
+        for attempt in range(5):
+            try:
+                return requests.post(self.base_url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                if attempt == 4:
+                    raise MCPError(f"MCP {method} network error after retries: {str(e)[:200]}")
+                time.sleep(min(3 * (2 ** attempt), 30))
+
+    def _use_bearer(self, force_refresh=False):
+        try:
+            token = mcp_oauth.token_for(self.base_url, force_refresh=force_refresh)
+        except mcp_oauth.NeedsLogin:
+            raise MCPError("this endpoint requires OAuth -- run: python3 -m core.mcp_oauth login")
+        self.headers["Authorization"] = f"Bearer {token}"
+        self.oauth = True
 
     def _rpc(self, method, params=None):
         payload = {"jsonrpc": "2.0", "id": str(uuid.uuid4()), "method": method}
         if params is not None:
             payload["params"] = params
-        # Retry transient network faults (DNS/connection drop, read timeout) with backoff so a
-        # brief wifi blip mid-trajectory doesn't kill the whole run.
-        for attempt in range(5):
-            try:
-                r = requests.post(self.base_url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
-                break
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-                if attempt == 4:
-                    raise MCPError(f"MCP {method} network error after retries: {str(e)[:200]}")
-                time.sleep(min(3 * (2 ** attempt), 30))
+        r = self._post(method, payload)
+        if r.status_code == 401 and (self.oauth or mcp_oauth.challenge(r)):
+            self._use_bearer(force_refresh=self.oauth)  # first switch to OAuth, or refresh an expired token
+            r = self._post(method, payload)
+        if r.headers.get("Mcp-Session-Id"):
+            self.headers["Mcp-Session-Id"] = r.headers["Mcp-Session-Id"]
         if r.status_code >= 400:
             raise MCPError(f"MCP {method} HTTP {r.status_code}: {r.text[:300]}")
         body = r.text
@@ -47,9 +69,16 @@ class MCPClient:
         return json.loads(body)
 
     def initialize(self):
-        return self._rpc("initialize", {
+        res = self._rpc("initialize", {
             "protocolVersion": "2024-11-05", "capabilities": {},
             "clientInfo": {"name": "benchmark-client", "version": "0.1.0"}})
+        if self.oauth:
+            # Tool Servers follow the MCP spec's handshake; toolkits never needed it.
+            try:
+                self._post("notifications/initialized", {"jsonrpc": "2.0", "method": "notifications/initialized"})
+            except MCPError:
+                pass
+        return res
 
     def list_tools(self):
         res = self._rpc("tools/list", {})

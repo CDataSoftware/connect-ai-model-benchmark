@@ -105,7 +105,8 @@ inside the golden.
 | **guarded** (A1) | Same, but validation lives *in the tool* — eligibility checked server-side before any write lands. |
 
 3–10 runs per model × task × condition. Per-condition turn cap (baseline 40, curated 12); matched
-reasoning regime; temperature logged per run. The full matrix is **154 cells / 1,034 runs** across
+reasoning regime; temperature logged per run. Tool results reach the model truncated at 8,000
+characters, except `search_context`, which returns whole context documents and gets 32,000. The full matrix is **154 cells / 1,034 runs** across
 22 models, 3 tasks, and 6 conditions.
 
 > **Results provenance:** `matrix.csv`, `runs_raw.csv`, charts, and the PDF are committed.
@@ -278,6 +279,9 @@ write-up in the PDF report.
    write anything unless it first reproduces R1's frozen golden **exactly**, and `--verify` also
    cross-checks the offline model against the live Derived Views.
 4. `python run_matrix.py --dry-run` — confirm the plan (tasks × conditions × runs) before spending.
+   It also connects to every MCP endpoint in the plan. Toolkit URLs use `CDATA_EMAIL` + `CDATA_ACCESS_TOKEN`;
+   Tool Server URLs require OAuth, so run `python -m core.mcp_oauth login` once first (browser login;
+   tokens are cached in `~/.cache/connect-ai-benchmark/` and refreshed automatically).
 5. `python run_matrix.py` — full matrix (resumable; skips completed runs). Scope it with
    `--task r2`, `--model gpt-5.6`, or smoke-test cheaply with `--runs 1 --out-dir results/smoke`.
    `--effort X` runs every selected model at one reasoning level instead of each model's configured

@@ -210,6 +210,20 @@ def main():
     for t, c in plan:
         print(f"   {t['id']:<4} {c['name']:<15} runs={c['runs']:<3} cap={c.get('turn_cap', DEFAULT_TURN_CAP):<3} "
               f"scoring={t['scoring']:<10} golden={len(t['golden'])} rows")
+    # connect to every endpoint in the plan before spending anything: a missing toolkit or an
+    # OAuth endpoint that needs `python3 -m core.mcp_oauth login` fails here, not run by run
+    bad = []
+    for env in dict.fromkeys(c["mcp_url_env"] for _, c in plan):
+        try:
+            mcp_client.MCPClient(os.environ[env], EMAIL, TOKEN, timeout=60).initialize()
+        except Exception as e:
+            bad.append(f"{env}: {str(e)[:160]}")
+    for b in bad:
+        print(f"!! endpoint check: {b}")
+    if bad:
+        raise SystemExit("!! fix the endpoints above (or blank their URL to skip those conditions)")
+    print(f"OK  {len(dict.fromkeys(c['mcp_url_env'] for _, c in plan))} MCP endpoint(s) reachable")
+
     if args.dry_run:
         return
 

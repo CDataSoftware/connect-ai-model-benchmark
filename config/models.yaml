@@ -164,6 +164,7 @@ tasks:
     legacy_tag: true
     conditions:
       - { name: baseline,  mcp_url_env: MCP_BASELINE_URL,  runs: 3,  turn_cap: 40 }
+      - { name: baseline_context, mcp_url_env: MCP_BASELINE_CONTEXT_URL, runs: 3, turn_cap: 40 }
       - { name: optimized, mcp_url_env: MCP_OPTIMIZED_URL, runs: 10, turn_cap: 12 }
 
   - id: r2
@@ -174,6 +175,7 @@ tasks:
       # R2-baseline reuses the baseline toolkit as-is: it already exposes all 6 raw tables
       # including DIM_ACCOUNT + TELEMETRY_EVENTS, which is everything this task needs.
       - { name: baseline,  mcp_url_env: MCP_BASELINE_URL, runs: 5, turn_cap: 40 }
+      - { name: baseline_context, mcp_url_env: MCP_BASELINE_CONTEXT_URL, runs: 5, turn_cap: 40 }
       - { name: optimized, mcp_url_env: MCP_R2_OPTIMIZED_URL,  runs: 8, turn_cap: 12 }
 
   - id: a1

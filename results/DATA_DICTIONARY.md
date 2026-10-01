@@ -45,6 +45,10 @@ Accuracy is on a **0-100** scale unless noted. "Query"/"q" = one full task attem
 | `tokens_med` | Median total tokens per query (all input + output + reasoning). |
 | `reasoning_med` | Median reasoning/"thinking" tokens per query (0 for Anthropic by API design; see below). |
 | `wall_med` | Median wall-clock seconds per query. |
+| `norm_time_med` | Median network-independent run time (see `norm_time_s` in runs_raw.csv). Prefer this over `wall_med` when comparing conditions. |
+| `search_context_calls_med` / `search_context_s_med` | Median `search_context` calls and seconds per run. |
+| `mcp_probe_ms_med` | Median MCP `initialize` latency — the network reading for the cell. |
+| `retry_backoff_s_total` | Total provider retry back-off seconds across the cell's runs. |
 | `tok_per_s` | Throughput — tokens per second. |
 | `calls_med` | Median number of tool calls per query. |
 | `solved_rate` / `wrong_rate` / `timeout_rate` | Fraction of the cell's runs that were business-correct (correctness ≥ 60) / complete-but-wrong ("confidently wrong") / no usable answer. Most informative for baseline; see `scorer.classify_outcome`. **Always read alongside `correctness_med` — see the bimodality note below.** |
@@ -130,13 +134,20 @@ it can swing the reported figure substantially, with nothing about the model hav
 | `total_tokens` | Sum of all token categories for this run. |
 | `cost_usd` | USD cost of this run at list prices. |
 | `wall_s` | Wall-clock seconds for this run. |
-| `model_time_s` | Time spent in model inference. |
+| `model_time_s` | Time spent in model inference, including any retry back-off (see `model_retry_backoff_s`). |
 | `mcp_time_s` | Time spent in Connect AI / tool execution. |
 | `tool_calls` | Number of tool calls this run. |
 | `turns` | Number of model<->tool turns (round-trips). |
 | `hit_turn_cap` | `True` if the run exhausted its (per-condition) `turn_cap` without finishing. |
 | `stop_reason` | Why the run ended (`stop`/`tool_use`/`max_tokens`). |
 | `error` | Error class if the run failed (blank = clean). |
+| `norm_time_s` | Network-independent run time: each tool call priced at that tool's median latency across all runs, plus model time from a per-model fit (`a × turns + b × output tokens`) with retry back-off removed. Runs doing the same work get the same value regardless of network speed. |
+| `search_context_calls` | Number of `search_context` calls in the run. |
+| `search_context_s` | Seconds spent in `search_context` calls. |
+| `mcp_probe_ms` | Latency of the MCP `initialize` call that starts the run — a reading of network and gateway speed at that moment. Blank for runs before this field existed. |
+| `model_retries` | Provider calls retried after a transient error (429/5xx/overloaded). |
+| `model_retry_backoff_s` | Seconds slept between those retries; included in `model_time_s`. |
+| `mcp_retries` | MCP requests retried after a network error. |
 
 ---
 

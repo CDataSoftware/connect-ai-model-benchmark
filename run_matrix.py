@@ -83,6 +83,18 @@ def kwargs_for(m, level):
         return kw
     return {}
 
+def interleaved(plan):
+    """(task, condition, run) in round-robin order within each task -- run 1 of every condition,
+    then run 2, ... -- so network and provider drift over a session falls on all conditions alike."""
+    tasks = {}
+    for task, cond in plan:
+        tasks.setdefault(task["id"], (task, []))[1].append(cond)
+    for task, conds in tasks.values():
+        for r in range(1, max(c["runs"] for c in conds) + 1):
+            for cond in conds:
+                if r <= cond["runs"]:
+                    yield task, cond, r
+
 def done(path):
     if not os.path.exists(path): return False
     try:
@@ -238,87 +250,96 @@ def main():
         api_key = os.environ.get(keyenv, "nokey") if keyenv else "nokey"
         for level in efforts[m["id"]]:
             kw = kwargs_for(m, level)
-            for task, cond in plan:
+            for task, cond, r in interleaved(plan):
                 url = os.environ[cond["mcp_url_env"]]
                 cap = cond.get("turn_cap", DEFAULT_TURN_CAP)
                 is_action = task["scoring"] == "action"
-                for r in range(1, cond["runs"] + 1):
-                    n += 1
-                    tag = tag_for(task, m["id"], level, cond["name"], r)
-                    path = os.path.join(results_dir, tag + ".json")
-                    if done(path):
-                        print(f"[{n}/{total}] skip (done) {tag}", flush=True); continue
-                    print(f"[{n}/{total}] {tag} ...", flush=True)
-                    queue_rows = None; src_after = None
-                    try:
-                        if is_action and task.get("reset_before_run", True):
-                            # every action run must start from an empty table, or it inherits the
-                            # previous run's rows and both runs score wrong
-                            queue.reset()
-                        mcp = mcp_client.MCPClient(url, EMAIL, TOKEN)
-                        for attempt in range(3):
-                            try:
-                                mcp.initialize(); break
-                            except Exception:
-                                if attempt == 2: raise
-                                time.sleep(5)
-                        rec = fn(m["id"], mcp, task["prompt"], cond["name"], r, api_key,
-                                 turn_cap=cap, temperature=TEMPERATURE, **kw)
-                    except Exception as e:
-                        rec = {"model": m["id"], "provider": m["provider"], "condition": cond["name"], "run": r,
-                               "error": str(e)[:400], "error_class": type(e).__name__, "trace": []}
-
-                    # Post-run bookkeeping (reading REVIEW_QUEUE + the source-table snapshot back for
-                    # scoring) is a SEPARATE failure domain from the model run itself, and deliberately
-                    # NOT part of the try/except above: a transient verifier-side error here (as hit
-                    # live -- a 502 from CData's REST API on the snapshot query, after the model had
-                    # already run to completion) must not discard a real, already-paid-for model
-                    # execution. If it fails, rec's tokens/cost/trace stay intact; only the action score
-                    # is marked unavailable and the run is flagged for retry via the same "error" field
-                    # done() already checks, rather than wiping rec back to a bare error dict.
-                    if is_action and not rec.get("error"):
+                n += 1
+                tag = tag_for(task, m["id"], level, cond["name"], r)
+                path = os.path.join(results_dir, tag + ".json")
+                if done(path):
+                    print(f"[{n}/{total}] skip (done) {tag}", flush=True); continue
+                print(f"[{n}/{total}] {tag} ...", flush=True)
+                queue_rows = None; src_after = None; probe_ms = None; mcp = None
+                try:
+                    if is_action and task.get("reset_before_run", True):
+                        # every action run must start from an empty table, or it inherits the
+                        # previous run's rows and both runs score wrong
+                        queue.reset()
+                    runners.RETRY_STATS.update(count=0, backoff_s=0.0)
+                    mcp = mcp_client.MCPClient(url, EMAIL, TOKEN)
+                    for attempt in range(3):
                         try:
-                            queue_rows = queue.rows()   # the graded artifact for this run
-                            src_after = queue.snapshot_sources()
-                        except Exception as e:
-                            rec["error"] = f"post-run verification failed (model run itself succeeded): {str(e)[:350]}"
-                            rec["error_class"] = type(e).__name__
-                    rec["task"] = task["id"]
-                    if is_action:
-                        rec["queue_rows"] = queue_rows
-                        if src_after:
-                            # attribute the delta to THIS run, then re-baseline so one dirty run doesn't
-                            # make every later run look dirty
-                            delta = {k: src_after[k] - src_baseline.get(k, src_after[k])
-                                     for k in src_after}
-                            rec["source_integrity"] = {"before": dict(src_baseline), "after": src_after,
-                                                       "delta": {k: v for k, v in delta.items() if v}}
-                            if rec["source_integrity"]["delta"]:
-                                print(f"    !! OFF-TARGET WRITE landed in source tables: "
-                                      f"{rec['source_integrity']['delta']} -- verify source tables and revert any off-target writes manually", flush=True)
-                            src_baseline = src_after
-                    if not rec.get("error"):
-                        rec["score"] = score_run(task, rec, queue_rows)
-                    rec["label"] = m["label"]; rec["mcp_url"] = url; rec["effort"] = level
-                    rec["cost_usd"] = cost(rec, m) if not rec.get("error") else None
-                    rec["price_per_mtok"] = {"input": m["price_input_per_mtok"],
-                                             "cached": m.get("price_cached_input_per_mtok", m["price_input_per_mtok"] * 0.1),
-                                             "output": m["price_output_per_mtok"]}
-                    rec["price_verified_live"] = m["id"] in verified
-                    if rec.get("resolved_model") and rec["resolved_model"] != m["id"]:
-                        print(f"    !! {m['id']} was served by {rec['resolved_model']}", flush=True)
-                    json.dump(rec, open(path, "w"), indent=2, default=str)
-                    s = rec.get("score") or {}
-                    if is_action:
-                        extra = (f"rows={s.get('rows_written','-')} f1={s.get('action_f1','-')} "
-                                 f"unauth={s.get('unauthorized_rows','-')} dupes={s.get('duplicate_rows','-')} "
-                                 f"offtarget={s.get('offtarget_write_attempts','-')} "
-                                 f"[{scorer.classify_action_outcome(s) if s else '-'}]")
-                    else:
-                        extra = f"acc={s.get('layer1_accuracy','-')}"
-                    print(f"    done tok={rec.get('raw_total','-')} calls={rec.get('tool_calls','-')} turns={rec.get('turns','-')} "
-                          f"wall={rec.get('wall_s','-')}s cost=${rec.get('cost_usd')} {extra} err={rec.get('error_class')}", flush=True)
-                    time.sleep(3)  # inter-run spacing to ease provider load
+                            t_probe = time.perf_counter()
+                            mcp.initialize()
+                            probe_ms = round((time.perf_counter() - t_probe) * 1000)  # network + gateway reading
+                            break
+                        except Exception:
+                            if attempt == 2: raise
+                            time.sleep(5)
+                    rec = fn(m["id"], mcp, task["prompt"], cond["name"], r, api_key,
+                             turn_cap=cap, temperature=TEMPERATURE, **kw)
+                except Exception as e:
+                    rec = {"model": m["id"], "provider": m["provider"], "condition": cond["name"], "run": r,
+                           "error": str(e)[:400], "error_class": type(e).__name__, "trace": []}
+
+                # Post-run bookkeeping (reading REVIEW_QUEUE + the source-table snapshot back for
+                # scoring) is a SEPARATE failure domain from the model run itself, and deliberately
+                # NOT part of the try/except above: a transient verifier-side error here (as hit
+                # live -- a 502 from CData's REST API on the snapshot query, after the model had
+                # already run to completion) must not discard a real, already-paid-for model
+                # execution. If it fails, rec's tokens/cost/trace stay intact; only the action score
+                # is marked unavailable and the run is flagged for retry via the same "error" field
+                # done() already checks, rather than wiping rec back to a bare error dict.
+                if is_action and not rec.get("error"):
+                    try:
+                        queue_rows = queue.rows()   # the graded artifact for this run
+                        src_after = queue.snapshot_sources()
+                    except Exception as e:
+                        rec["error"] = f"post-run verification failed (model run itself succeeded): {str(e)[:350]}"
+                        rec["error_class"] = type(e).__name__
+                rec["task"] = task["id"]
+                if is_action:
+                    rec["queue_rows"] = queue_rows
+                    if src_after:
+                        # attribute the delta to THIS run, then re-baseline so one dirty run doesn't
+                        # make every later run look dirty
+                        delta = {k: src_after[k] - src_baseline.get(k, src_after[k])
+                                 for k in src_after}
+                        rec["source_integrity"] = {"before": dict(src_baseline), "after": src_after,
+                                                   "delta": {k: v for k, v in delta.items() if v}}
+                        if rec["source_integrity"]["delta"]:
+                            print(f"    !! OFF-TARGET WRITE landed in source tables: "
+                                  f"{rec['source_integrity']['delta']} -- verify source tables and revert any off-target writes manually", flush=True)
+                        src_baseline = src_after
+                if not rec.get("error"):
+                    rec["score"] = score_run(task, rec, queue_rows)
+                rec["label"] = m["label"]; rec["mcp_url"] = url; rec["effort"] = level
+                rec["mcp_probe_ms"] = probe_ms
+                rec["model_retries"] = runners.RETRY_STATS["count"]
+                rec["model_retry_backoff_s"] = round(runners.RETRY_STATS["backoff_s"], 1)
+                if mcp is not None:
+                    rec["mcp_retries"] = mcp.retries
+                    rec["mcp_retry_backoff_s"] = round(mcp.retry_backoff_s, 1)
+                rec["cost_usd"] = cost(rec, m) if not rec.get("error") else None
+                rec["price_per_mtok"] = {"input": m["price_input_per_mtok"],
+                                         "cached": m.get("price_cached_input_per_mtok", m["price_input_per_mtok"] * 0.1),
+                                         "output": m["price_output_per_mtok"]}
+                rec["price_verified_live"] = m["id"] in verified
+                if rec.get("resolved_model") and rec["resolved_model"] != m["id"]:
+                    print(f"    !! {m['id']} was served by {rec['resolved_model']}", flush=True)
+                json.dump(rec, open(path, "w"), indent=2, default=str)
+                s = rec.get("score") or {}
+                if is_action:
+                    extra = (f"rows={s.get('rows_written','-')} f1={s.get('action_f1','-')} "
+                             f"unauth={s.get('unauthorized_rows','-')} dupes={s.get('duplicate_rows','-')} "
+                             f"offtarget={s.get('offtarget_write_attempts','-')} "
+                             f"[{scorer.classify_action_outcome(s) if s else '-'}]")
+                else:
+                    extra = f"acc={s.get('layer1_accuracy','-')}"
+                print(f"    done tok={rec.get('raw_total','-')} calls={rec.get('tool_calls','-')} turns={rec.get('turns','-')} "
+                      f"wall={rec.get('wall_s','-')}s cost=${rec.get('cost_usd')} {extra} err={rec.get('error_class')}", flush=True)
+                time.sleep(3)  # inter-run spacing to ease provider load
 
     if queue is not None:
         try:

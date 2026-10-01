@@ -13,7 +13,7 @@ import csv, glob, json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from core import scorer, tasks as tasklib
+from core import scorer, tasks as tasklib, timing
 
 MATRIX = os.path.join(HERE, "results", "matrix")
 
@@ -33,13 +33,16 @@ ACTION_COLS = ["rows_written", "accounts_written", "action_precision", "action_r
 RUN_COLS = ["uncached_input", "cached_input", "output_tokens", "reasoning_tokens", "total_tokens",
             "reasoning_mode", "thinking_chars", "temperature_requested", "temperature_applied",
             "turn_cap", "wall_s", "model_time_s", "mcp_time_s",
-            "tool_calls", "turns", "hit_turn_cap", "stop_reason", "error"]
+            "tool_calls", "turns", "hit_turn_cap", "stop_reason", "error",
+            "norm_time_s", "search_context_calls", "search_context_s", "mcp_probe_ms",
+            "model_retries", "model_retry_backoff_s", "mcp_retries"]
 COLS = COMMON + READ_COLS + ACTION_COLS + RUN_COLS
 
 
 def main():
     TASKS = tasklib.load_tasks()
     recs = {os.path.basename(f)[:-5]: json.load(open(f)) for f in glob.glob(os.path.join(MATRIX, "*.json"))}
+    tool_med, rates = timing.references(recs.values())
 
     rows = []
     for tag, r in sorted(recs.items()):
@@ -80,6 +83,11 @@ def main():
             "mcp_time_s": r.get("mcp_time_s"), "tool_calls": r.get("tool_calls"),
             "turns": r.get("turns"), "hit_turn_cap": r.get("hit_turn_cap"),
             "stop_reason": r.get("stop_reason"), "error": r.get("error_class"),
+            "norm_time_s": timing.normalized_time(r, tool_med, rates),
+            "search_context_calls": timing.search_context_use(r)[0],
+            "search_context_s": timing.search_context_use(r)[1],
+            "mcp_probe_ms": r.get("mcp_probe_ms"), "model_retries": r.get("model_retries"),
+            "model_retry_backoff_s": r.get("model_retry_backoff_s"), "mcp_retries": r.get("mcp_retries"),
         })
         rows.append(row)
 

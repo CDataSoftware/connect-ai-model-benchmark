@@ -24,6 +24,8 @@ class MCPClient:
         }
         self.timeout = timeout
         self.oauth = False
+        self.retries = 0
+        self.retry_backoff_s = 0.0
 
     def _post(self, method, payload):
         # Retry transient network faults (DNS/connection drop, read timeout) with backoff so a
@@ -34,7 +36,9 @@ class MCPClient:
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
                 if attempt == 4:
                     raise MCPError(f"MCP {method} network error after retries: {str(e)[:200]}")
-                time.sleep(min(3 * (2 ** attempt), 30))
+                wait = min(3 * (2 ** attempt), 30)
+                self.retries += 1; self.retry_backoff_s += wait
+                time.sleep(wait)
 
     def _use_bearer(self, force_refresh=False):
         try:

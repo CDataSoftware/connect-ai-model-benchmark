@@ -8,6 +8,11 @@ timing split (model vs MCP), full execution trace, and any error class.
 import json, time, random
 
 
+# Provider retries in the current run. The back-off sleeps fall inside the model timer, so
+# run_matrix records them separately to keep throttling from reading as a slow model.
+RETRY_STATS = {"count": 0, "backoff_s": 0.0}
+
+
 def _retry(fn, tries=6, base=3.0):
     """Retry a provider API call on transient errors (429/5xx/overloaded) with exp backoff + jitter."""
     _T = ("overloaded", "overload", "rate limit", "ratelimit", "rate_limit", "429", "529",
@@ -21,7 +26,9 @@ def _retry(fn, tries=6, base=3.0):
             transient = code in (429, 500, 502, 503, 529) or any(t in msg for t in _T)
             if not transient or i == tries - 1:
                 raise
-            time.sleep(min(base * (2 ** i), 60) + random.random())
+            wait = min(base * (2 ** i), 60) + random.random()
+            RETRY_STATS["count"] += 1; RETRY_STATS["backoff_s"] += wait
+            time.sleep(wait)
 
 
 SYSTEM = ("You are an enterprise data assistant. Use the available tools to answer the "

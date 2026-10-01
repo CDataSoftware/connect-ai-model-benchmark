@@ -19,7 +19,7 @@ import argparse, csv, json, os, statistics, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from core import scorer, tasks as tasklib
+from core import scorer, tasks as tasklib, timing
 
 MATRIX = os.path.join(HERE, "results", "matrix")
 
@@ -122,6 +122,8 @@ def main():
 
     TASKS = tasklib.load_tasks()
     recs = load(MATRIX)
+    # normalization references come from every loaded run, so filtering below doesn't move them
+    tool_med, rates = timing.references(recs.values())
     if args.effort == "configured":
         conf = _configured_efforts()
         recs = {t: r for t, r in recs.items() if r.get("effort") in conf.get(r.get("model"), ())}
@@ -172,6 +174,12 @@ def main():
             "cost_med": cost, "cost_per_correct": cpc, "cost_med_per_1k_q": round(med(costs) * 1000, 2),
             "tokens_med": int(med(toks)), "reasoning_med": int(med(reason)),
             "wall_med": round(med(walls), 1),
+            "norm_time_med": round(med([timing.normalized_time(r, tool_med, rates) for _, r in items]), 1),
+            "search_context_calls_med": med([timing.search_context_use(r)[0] for _, r in items]),
+            "search_context_s_med": round(med([timing.search_context_use(r)[1] for _, r in items]), 1),
+            "mcp_probe_ms_med": (round(med(probes)) if (probes := [r.get("mcp_probe_ms") for _, r in items
+                                                                     if isinstance(r.get("mcp_probe_ms"), (int, float))]) else None),
+            "retry_backoff_s_total": round(sum((r.get("model_retry_backoff_s") or 0) for _, r in items), 1),
             "tok_per_s": round(med(toks) / med(walls), 1) if med(walls) else 0,
             "calls_med": round(med(calls), 1),
             "correctness_range": round(max(L1) - min(L1), 1) if len(L1) > 1 else 0.0,

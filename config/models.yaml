@@ -1,4 +1,4 @@
-# Model matrix — 26 models, 12 developers.
+# Model matrix — 25 models, 12 developers.
 # NOTE: `provider` below is the API DIALECT the harness speaks (anthropic/openai/google/xai/
 # openai_compat), not the model's developer and not its host. Open-weight models are served by
 # Together.ai but built by Meta, DeepSeek, Alibaba and others; see the README model table.
@@ -28,7 +28,7 @@
 #   mid       the mainstream workhorse line     (Gemini Flash, Mistral Large, DeepSeek Pro,
 #             Qwen Max, GLM-5.3, Grok 4.3)
 #   frontier  the developer's top reasoning model, and only where that developer fields one
-#             here (Sonnet 5/5.5, Opus 5.5, Fable 5/5.1, GPT-6 Sol/Astra, Grok 4.7, Kimi K3, Inkling)
+#             here (Sonnet 5.5, Opus 5.5, Fable 5/5.1, GPT-6 Sol/Astra, Grok 4.7, Kimi K3, Inkling)
 # The cap is why Mistral Large and Qwen 3.7 Max sit at mid: each is its developer's flagship,
 # but neither developer fields a frontier-class entry in this set.
 #
@@ -44,7 +44,6 @@
 # --- models
 models:
   - { id: claude-haiku-4-5,      provider: anthropic, tier: economy, label: Haiku 4.5,        price_input_per_mtok: 1.00, price_cached_input_per_mtok: 0.10,  price_output_per_mtok: 5.00,  thinking_budget: 2048, effort: default }
-  - { id: claude-sonnet-5,       provider: anthropic, tier: frontier, label: Sonnet 5,         price_input_per_mtok: 2.00, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 10.00, effort: low }
   - { id: claude-sonnet-5-5,     provider: anthropic, tier: frontier, label: Sonnet 5.5,       price_input_per_mtok: 2.00, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 10.00, effort: low }
   - { id: gemini-3.1-flash-lite, provider: google, tier: economy,    label: Gemini 3.1 Flash-Lite, price_input_per_mtok: 0.25, price_cached_input_per_mtok: 0.025, price_output_per_mtok: 1.50, effort: low }
   - { id: grok-4.3,              provider: xai, tier: mid,       label: Grok 4.3,         price_input_per_mtok: 1.25, price_cached_input_per_mtok: 0.20,  price_output_per_mtok: 2.50,  effort: low }
@@ -154,6 +153,8 @@ models:
 #            action        -> scorer.score_action() graded on REVIEW_QUEUE's end state, not prose
 # turn_cap is per-condition: curated toolkits converge in ~3 turns, but raw federation needs far
 # more headroom (baseline previously strangled at 12 - most runs never left schema discovery).
+# This edition compares raw access with and without shared context; the curated conditions
+# are switched off (enabled: false) and return in a later edition.
 tasks:
   - id: r1
     prompt_file: config/prompt.txt
@@ -163,9 +164,9 @@ tasks:
     # legacy_tag keeps that filename shape so those runs stay valid and are not re-run.
     legacy_tag: true
     conditions:
-      - { name: baseline,  mcp_url_env: MCP_BASELINE_URL,  runs: 3,  turn_cap: 40 }
-      - { name: baseline_context, mcp_url_env: MCP_BASELINE_CONTEXT_URL, runs: 3, turn_cap: 40 }
-      - { name: optimized, mcp_url_env: MCP_OPTIMIZED_URL, runs: 10, turn_cap: 12 }
+      - { name: baseline,  mcp_url_env: MCP_BASELINE_URL,  runs: 5,  turn_cap: 40 }
+      - { name: baseline_context, mcp_url_env: MCP_BASELINE_CONTEXT_URL, runs: 5, turn_cap: 40 }
+      - { name: optimized, mcp_url_env: MCP_OPTIMIZED_URL, runs: 10, turn_cap: 12, enabled: false }
 
   - id: r2
     prompt_file: config/prompt_r2.txt
@@ -176,7 +177,7 @@ tasks:
       # including DIM_ACCOUNT + TELEMETRY_EVENTS, which is everything this task needs.
       - { name: baseline,  mcp_url_env: MCP_BASELINE_URL, runs: 5, turn_cap: 40 }
       - { name: baseline_context, mcp_url_env: MCP_BASELINE_CONTEXT_URL, runs: 5, turn_cap: 40 }
-      - { name: optimized, mcp_url_env: MCP_R2_OPTIMIZED_URL,  runs: 8, turn_cap: 12 }
+      - { name: optimized, mcp_url_env: MCP_R2_OPTIMIZED_URL,  runs: 8, turn_cap: 12, enabled: false }
 
   - id: a1
     prompt_file: config/prompt_a1.txt
@@ -188,7 +189,8 @@ tasks:
     reset_before_run: true
     conditions:
       - { name: baseline, mcp_url_env: MCP_A1_BASELINE_URL, runs: 5, turn_cap: 40 }
-      - { name: unguarded,          mcp_url_env: MCP_A1_UNGUARDED_URL,    runs: 8, turn_cap: 12 }
+      - { name: baseline_context, mcp_url_env: MCP_A1_BASELINE_CONTEXT_URL, runs: 5, turn_cap: 40 }
+      - { name: unguarded,          mcp_url_env: MCP_A1_UNGUARDED_URL,    runs: 8, turn_cap: 12, enabled: false }
       # ENABLED 2026-07-27. Was blocked by the CData push-down bug; worked around with a
       # single-connection ACCOUNT_HEALTH_SNAPSHOT table (Scheduled Query
       # off account_health_score), so the guarded tool's INSERT...SELECT is now single-catalog.
@@ -197,7 +199,7 @@ tasks:
       # destination name (REASON) has no exact source match (ELIGIBILITY_REASON) instead of
       # erroring. Fixed with `AS REASON`; full 5-point checklist re-verified against the live MCP
       # tool afterward (eligible/dedupe/ineligible/wrong-reason/second-account all correct).
-      - { name: guarded, mcp_url_env: MCP_A1_GUARDED_URL, runs: 8, turn_cap: 12 }
+      - { name: guarded, mcp_url_env: MCP_A1_GUARDED_URL, runs: 8, turn_cap: 12, enabled: false }
 
 # temperature: applied where the provider allows it. Reasoning-on OpenAI and thinking-on
 # Anthropic force the provider default (~1.0); per-run temperature_applied records what happened.
@@ -209,6 +211,7 @@ turn_cap: 12   # fallback if a condition omits turn_cap
 # aggregate.py merges these labels so published rows keep their names after a roster change.
 retired_models:
   - { id: claude-sonnet-4-6,     label: Sonnet 4.6 }
+  - { id: claude-sonnet-5,       label: Sonnet 5 }
   - { id: claude-opus-4-8,       label: Opus 4.8 }
   - { id: claude-opus-5,         label: Opus 5 }
   - { id: gpt-5.5,               label: GPT-5.5 }

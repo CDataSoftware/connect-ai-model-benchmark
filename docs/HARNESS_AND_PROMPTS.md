@@ -60,6 +60,12 @@ All three task prompts and the harness design decisions behind them. Background/
   even though only one of the three conditions actually enforces them server-side.
 - Says "queue a manual review," matching the tools' own descriptions ("Queue a manual review for
   an account...") — consistent vocabulary between prompt and tool, no hint-revealing mismatch.
+- **Has its own system prompt** (`config/system_a1.txt`, via `system_file` in `models.yaml`). The
+  shared one, used by R1 and R2, says to answer "by querying the data" and return a table, which
+  conflicts with a request to make changes; models that follow it literally report what to queue
+  without writing it. A1's asks the model to complete the request, changes included, then
+  summarize. Each run records which system prompt it used (`system_prompt`). September's results
+  ran A1 on the shared prompt, so A1 is not comparable across that change.
 
 ## Harness changes — IMPLEMENTED 2026-07-27
 

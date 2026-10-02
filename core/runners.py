@@ -122,7 +122,7 @@ def mcp_to_openai_responses(tools):
     return out
 
 
-def run_openai(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, reasoning_effort=None, temperature=None):
+def run_openai(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, reasoning_effort=None, temperature=None, system=SYSTEM):
     from openai import OpenAI
     client = OpenAI(api_key=api_key)
     rec = _blank(model, "openai", condition, run_idx)
@@ -151,7 +151,7 @@ def run_openai(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, rea
                 return _retry(lambda: client.responses.create(**base))
 
     try:
-        inp = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
+        inp = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
         prev_id = None
         for turn in range(1, turn_cap + 1):
             rec["turns"] = turn
@@ -195,7 +195,7 @@ def run_openai(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, rea
 
 
 # ---------- Gemini ----------
-def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thinking_level=None, temperature=None):
+def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thinking_level=None, temperature=None, system=SYSTEM):
     from google import genai
     from google.genai import types
     client = genai.Client(api_key=api_key)
@@ -211,7 +211,7 @@ def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thi
         _cache = client.caches.create(
             model=model,
             config=types.CreateCachedContentConfig(
-                system_instruction=SYSTEM,
+                system_instruction=system,
                 tools=[types.Tool(function_declarations=decls)],
                 ttl="600s",
             ),
@@ -225,7 +225,7 @@ def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thi
         cfg_kwargs = dict(cached_content=_cache_name,
                           automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
     else:
-        cfg_kwargs = dict(tools=[types.Tool(function_declarations=decls)], system_instruction=SYSTEM,
+        cfg_kwargs = dict(tools=[types.Tool(function_declarations=decls)], system_instruction=system,
                           automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
     if temperature is not None:
         cfg_kwargs["temperature"] = temperature; rec["temperature_applied"] = temperature
@@ -287,7 +287,7 @@ def run_gemini(model, mcp, prompt, condition, run_idx, api_key, turn_cap=15, thi
 
 
 # ---------- Anthropic (Messages API) ----------
-def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, thinking_budget=None, effort=None, temperature=None, **kw):
+def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, thinking_budget=None, effort=None, temperature=None, system=SYSTEM, **kw):
     from anthropic import Anthropic
     client = Anthropic(api_key=api_key)
     rec = _blank(model, "anthropic", condition, run_idx)
@@ -311,7 +311,7 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
     if tools:
         tools[-1] = dict(tools[-1], cache_control={"type": "ephemeral"})
     rec["trace"].append({"event": "tools_listed", "count": len(tools), "names": [t["name"] for t in tools][:20]})
-    system_prompt = [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}]
+    system_prompt = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
     messages = [{"role": "user", "content": prompt}]
     t_start = time.perf_counter()
     try:
@@ -384,7 +384,7 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
 # ---------- Generic OpenAI-compatible (Together AI, Groq, Ollama, vLLM, …) ----------
 def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12,
                       base_url=None, reasoning_effort=None, temperature=None, use_stream=False,
-                      max_tokens=None):
+                      max_tokens=None, system=SYSTEM):
     """Tool-use loop for any OpenAI-compatible inference endpoint.
 
     Set base_url in models.yaml (e.g. https://api.together.ai/v1, http://localhost:11434/v1).
@@ -408,7 +408,7 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
     rec["reasoning_mode"] = f"effort={reasoning_effort}" if reasoning_effort else "off"
     tools = mcp_to_openai(mcp.list_tools())
     rec["trace"].append({"event": "tools_listed", "count": len(tools), "names": [t["function"]["name"] for t in tools][:20]})
-    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
     t_start = time.perf_counter()
 
     def _call_streaming(base):
@@ -506,7 +506,7 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
 
 
 # ---------- Grok (xAI, OpenAI-compatible chat completions) ----------
-def run_grok(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, reasoning_effort=None, temperature=None):
+def run_grok(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, reasoning_effort=None, temperature=None, system=SYSTEM):
     from openai import OpenAI
     client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
     rec = _blank(model, "xai", condition, run_idx)
@@ -514,7 +514,7 @@ def run_grok(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, reaso
     rec["reasoning_mode"] = f"effort={reasoning_effort}" if reasoning_effort else "off"
     tools = mcp_to_openai(mcp.list_tools())
     rec["trace"].append({"event": "tools_listed", "count": len(tools), "names": [t["function"]["name"] for t in tools][:20]})
-    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
     t_start = time.perf_counter()
 
     def create(msgs):

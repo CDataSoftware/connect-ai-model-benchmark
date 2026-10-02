@@ -112,6 +112,12 @@ def load_task(t):
             raise SystemExit(f"task {t['id']}: missing {t[key]}{hint}")
         t[name] = (open(path, encoding="utf-8").read().strip() if name == "prompt"
                    else scorer.load_golden(path))
+    # optional per-task system prompt; tasks without one use runners.SYSTEM
+    if t.get("system_file"):
+        path = os.path.join(HERE, t["system_file"])
+        if not os.path.exists(path):
+            raise SystemExit(f"task {t['id']}: missing {t['system_file']}")
+        t["system"] = open(path, encoding="utf-8").read().strip()
     return t
 
 def score_run(task, rec, queue_rows):
@@ -278,7 +284,8 @@ def main():
                             if attempt == 2: raise
                             time.sleep(5)
                     rec = fn(m["id"], mcp, task["prompt"], cond["name"], r, api_key,
-                             turn_cap=cap, temperature=TEMPERATURE, **kw)
+                             turn_cap=cap, temperature=TEMPERATURE,
+                             system=task.get("system", runners.SYSTEM), **kw)
                 except Exception as e:
                     rec = {"model": m["id"], "provider": m["provider"], "condition": cond["name"], "run": r,
                            "error": str(e)[:400], "error_class": type(e).__name__, "trace": []}
@@ -315,6 +322,7 @@ def main():
                 if not rec.get("error"):
                     rec["score"] = score_run(task, rec, queue_rows)
                 rec["label"] = m["label"]; rec["mcp_url"] = url; rec["effort"] = level
+                rec["system_prompt"] = task.get("system_file", "default")
                 rec["mcp_probe_ms"] = probe_ms
                 rec["model_retries"] = runners.RETRY_STATS["count"]
                 rec["model_retry_backoff_s"] = round(runners.RETRY_STATS["backoff_s"], 1)

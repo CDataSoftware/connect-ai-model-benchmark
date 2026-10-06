@@ -70,6 +70,11 @@ class ReviewQueue:
             try:
                 r = requests.post(self.api_url, auth=self.auth, json={"query": sql},
                                   timeout=self.timeout)
+                # gateway errors (502/503/504) are as transient as a dropped connection
+                if r.status_code in (502, 503, 504) and attempt < tries - 1:
+                    last = f"HTTP {r.status_code}"
+                    time.sleep(min(3 * (2 ** attempt), 30))
+                    continue
                 break
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
                 last = e

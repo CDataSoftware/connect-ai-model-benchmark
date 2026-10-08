@@ -44,6 +44,8 @@ Accuracy is on a **0-100** scale unless noted. "Query"/"q" = one full task attem
 | `tokens_med` | Median total tokens per query (all input + output + reasoning). |
 | `reasoning_med` | Median reasoning/"thinking" tokens per query (0 for Anthropic by API design; see below). |
 | `wall_med` | Median wall-clock seconds per query. |
+| `provider_refusals` | Runs in the cell stopped by the provider's content moderation (outcome `provider_refusal`). They count as failed runs in `correctness_med`. |
+| `correctness_med_excl_refusals` | `correctness_med` with provider-refusal runs left out. Equal to `correctness_med` when there are none. |
 | `tok_per_s` | Throughput — tokens per second. |
 | `calls_med` | Median number of tool calls per query. |
 | `solved_rate` / `wrong_rate` / `timeout_rate` | Fraction of the cell's runs that were business-correct (correctness ≥ 60) / complete-but-wrong ("confidently wrong") / no usable answer. Most informative for baseline; see `scorer.classify_outcome`. **Always read alongside `correctness_med` — see the bimodality note below.** |
@@ -134,7 +136,7 @@ it can swing the reported figure substantially, with nothing about the model hav
 | `tool_calls` | Number of tool calls this run. |
 | `turns` | Number of model<->tool turns (round-trips). |
 | `hit_turn_cap` | `True` if the run exhausted its (per-condition) `turn_cap` without finishing. |
-| `stop_reason` | Why the run ended (`stop`/`tool_use`/`max_tokens`). |
+| `stop_reason` | Why the run ended (`stop`/`tool_use`/`max_tokens`, or `tool_timeout` when a tool call ran past the MCP call deadline -- scored as a failed run, like hitting the turn cap; or `provider_refusal` when the model provider's content moderation rejected the conversation -- also scored as a failed run, with its own outcome so it can be set aside). |
 | `error` | Error class if the run failed (blank = clean). |
 
 ---

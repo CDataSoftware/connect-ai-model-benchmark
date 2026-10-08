@@ -131,6 +131,9 @@ def main():
         row = {
             "task": task_id, "model": label, "provider": prov, "condition": cond, "runs": len(items),
             "correctness_med": correctness,
+            # provider refusals count as failed runs above; this is the same median without them
+            "provider_refusals": sum(1 for _, r in items if r.get("provider_refusal")),
+            "correctness_med_excl_refusals": round(med([v for v, (_, r) in zip(L1, items) if not r.get("provider_refusal")]), 1),
             "cost_med": cost, "cost_per_correct": cpc, "cost_med_per_1k_q": round(med(costs) * 1000, 2),
             "tokens_med": int(med(toks)), "reasoning_med": int(med(reason)),
             "wall_med": round(med(walls), 1),

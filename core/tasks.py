@@ -65,6 +65,8 @@ def rescore(rec, tasks):
 
 def outcome(rec, score, task):
     """Task-appropriate coarse outcome label."""
+    if rec.get("provider_refusal"):
+        return "provider_refusal"
     if is_action(task):
         return scorer.classify_action_outcome(score)
-    return scorer.classify_outcome(score, rec.get("hit_turn_cap"))
+    return scorer.classify_outcome(score, rec.get("hit_turn_cap") or rec.get("tool_timeout"))

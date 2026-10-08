@@ -17,7 +17,7 @@ back over the harness's own credentials -- never through the toolkit under test.
   python3 run_matrix.py --task a1 --model grok-4.3 --runs 1 --out-dir results/smoke
                                         # cheap end-to-end smoke test, kept out of the real matrix
 """
-import argparse, json, os, sys, time
+import argparse, json, os, re, sys, time
 import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -93,6 +93,11 @@ def score_run(task, rec, queue_rows):
         s.update(scorer.write_target_score(rec))
         return s
     raise SystemExit(f"task {task['id']}: unknown scoring mode {mode!r}")
+
+# A provider's content moderation rejecting the conversation (e.g. Alibaba's input inspection on
+# Qwen). The model ran; the provider stopped it. Recorded as its own outcome, not retried.
+PROVIDER_REFUSAL = re.compile(r"inappropriate content|DataInspectionFailed", re.I)
+
 
 def tag_for(task, model_id, cond_name, run_idx):
     safe_id = model_id.replace("/", "--")  # Together model IDs contain '/' which breaks file paths
@@ -176,7 +181,7 @@ def main():
                 if done(path):
                     print(f"[{n}/{total}] skip (done) {tag}", flush=True); continue
                 print(f"[{n}/{total}] {tag} ...", flush=True)
-                queue_rows = None; src_after = None
+                queue_rows = None; src_after = None; mcp = None
                 try:
                     if is_action and task.get("reset_before_run", True):
                         # every action run must start from an empty table, or it inherits the
@@ -194,6 +199,17 @@ def main():
                 except Exception as e:
                     rec = {"model": m["id"], "provider": m["provider"], "condition": cond["name"], "run": r,
                            "error": str(e)[:400], "error_class": type(e).__name__, "trace": []}
+
+                if rec.get("error") and mcp is not None and mcp.pending:
+                    rec["pending_call"] = mcp.pending
+                if rec.get("error") and PROVIDER_REFUSAL.search(rec["error"]):
+                    rec["provider_refusal"] = True; rec["stop_reason"] = "provider_refusal"
+                    rec["provider_refusal_detail"] = rec["error"]; rec["error"] = None; rec["error_class"] = None
+                # A tool call past the MCP deadline is the run's own failure (a query too slow to
+                # finish), scored like hitting the turn cap -- not a harness error to retry.
+                if rec.get("error_class") == "MCPTimeout":
+                    rec["tool_timeout"] = True; rec["stop_reason"] = "tool_timeout"
+                    rec["tool_timeout_detail"] = rec["error"]; rec["error"] = None; rec["error_class"] = None
 
                 # Post-run bookkeeping (reading REVIEW_QUEUE + the source-table snapshot back for
                 # scoring) is a SEPARATE failure domain from the model run itself, and deliberately
@@ -225,7 +241,11 @@ def main():
                                   f"{rec['source_integrity']['delta']} -- verify source tables and revert any off-target writes manually", flush=True)
                         src_baseline = src_after
                 if not rec.get("error"):
-                    rec["score"] = score_run(task, rec, queue_rows)
+                    try:
+                        rec["score"] = score_run(task, rec, queue_rows)
+                    except Exception as e:  # one unscorable run must not end the matrix
+                        rec["error"] = f"scoring failed: {type(e).__name__}: {str(e)[:300]}"
+                        rec["error_class"] = "ScoringError"
                 rec["label"] = m["label"]; rec["mcp_url"] = url
                 rec["cost_usd"] = cost(rec, m) if not rec.get("error") else None
                 json.dump(rec, open(path, "w"), indent=2, default=str)

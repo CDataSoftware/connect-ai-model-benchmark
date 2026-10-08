@@ -88,6 +88,22 @@ def _blank(model, provider, condition, run_idx):
             "trace": [], "final_answer": "", "error": None, "error_class": None}
 
 
+def _text_and_thinking(content):
+    """Split message content into (answer text, thinking chars). Mistral reasoning models return a
+    list of chunks -- {"type": "thinking", ...} and {"type": "text", "text": ...} -- not a string."""
+    if not isinstance(content, list):
+        return content or "", 0
+    text, thinking = [], 0
+    for c in content:
+        c = c if isinstance(c, dict) else getattr(c, "__dict__", {})
+        if c.get("type") == "text":
+            text.append(c.get("text") or "")
+        elif c.get("type") == "thinking":
+            th = c.get("thinking")
+            thinking += sum(len(x.get("text", "") if isinstance(x, dict) else str(x)) for x in th) if isinstance(th, list) else len(th or "")
+    return "".join(text), thinking
+
+
 # ---------- OpenAI (Responses API - required for function tools + reasoning) ----------
 def mcp_to_openai_responses(tools):
     out = []
@@ -449,7 +465,7 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
             rec["raw_total"] += int(getattr(u, "total_tokens", 0) or 0)
             rec["stop_reason"] = finish_reason
             if not tool_calls_raw:
-                rec["final_answer"] = content or ""; break
+                rec["final_answer"], th = _text_and_thinking(content); rec["thinking_chars"] += th; break
             messages.append({"role": "assistant", "content": content, "tool_calls": tool_calls_raw})
             for tc in tool_calls_raw:
                 rec["tool_calls"] += 1

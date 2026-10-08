@@ -51,6 +51,8 @@ class MCPClient:
             if r.status_code >= 400:
                 raise MCPError(f"MCP {method} HTTP {r.status_code}: {self._read_body(method, r, deadline)[:300]}")
             if "text/event-stream" in r.headers.get("Content-Type", ""):
+                # Event streams are UTF-8 by spec; without a declared charset requests would decode as ISO-8859-1.
+                r.encoding = "utf-8"
                 # return the first JSON-RPC message; don't wait for the stream to close
                 for line in r.iter_lines(decode_unicode=True):
                     if time.monotonic() > deadline:

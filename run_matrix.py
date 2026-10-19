@@ -121,7 +121,8 @@ def main():
     tasks = [t for t in CFG["tasks"] if not args.task or t["id"] in args.task]
     if not tasks:
         raise SystemExit(f"no tasks matched {args.task}")
-    models = [m for m in CFG["models"] if not args.model or m["id"] in args.model]
+    by_id = {m["id"]: m for m in CFG["models"]}
+    models = [by_id[i] for i in args.model if i in by_id] if args.model else CFG["models"]  # --model order
     if not models:
         raise SystemExit(f"no models matched {args.model}")
     tasks = [load_task(t) for t in tasks]

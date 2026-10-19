@@ -400,14 +400,25 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
         """Stream response, reassemble content + tool calls, return (message_dict, usage, finish_reason)."""
         chunks = list(_retry(lambda: client.chat.completions.create(
             **base, stream=True, stream_options={"include_usage": True})))
-        content = ""; tcs = {}; finish = None; usage = None
+        content = ""; thinking = ""; listed = False; tcs = {}; finish = None; usage = None
         for chunk in chunks:
             if chunk.usage:
                 usage = chunk.usage
             if not chunk.choices:
                 continue
             d = chunk.choices[0].delta; finish = chunk.choices[0].finish_reason or finish
-            if d.content:
+            if isinstance(d.content, list):
+                # Mistral reasoning models stream content as a list of {"type": "thinking"|"text"} parts
+                listed = True
+                for part in d.content:
+                    part = part if isinstance(part, dict) else getattr(part, "__dict__", {})
+                    if part.get("type") == "text":
+                        content += part.get("text") or ""
+                    elif part.get("type") == "thinking":
+                        th = part.get("thinking")
+                        thinking += "".join((x.get("text", "") if isinstance(x, dict) else str(x)) for x in th) \
+                            if isinstance(th, list) else (th or "")
+            elif d.content:
                 content += d.content
             for tc in (d.tool_calls or []):
                 e = tcs.setdefault(tc.index, {"id": tc.id or "", "name": "", "arguments": ""})
@@ -422,6 +433,11 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
         tool_calls = [{"id": e["id"], "type": "function",
                        "function": {"name": e["name"], "arguments": e["arguments"]}}
                       for e in tcs.values()] if tcs else None
+        if listed:
+            # Same shape the non-streaming path receives, so _text_and_thinking and the next request
+            # handle it identically.
+            content = ([{"type": "thinking", "thinking": [{"type": "text", "text": thinking}]}] if thinking else []) \
+                + [{"type": "text", "text": content}]
         return content, tool_calls, usage, finish
 
     def create(msgs):

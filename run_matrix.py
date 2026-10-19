@@ -111,6 +111,7 @@ def main():
     ap.add_argument("--model", action="append", help="only these model ids")
     ap.add_argument("--runs", type=int, help="override runs-per-condition (for smoke tests)")
     ap.add_argument("--out-dir", help="write run JSON here instead of results/matrix")
+    ap.add_argument("--condition", action="append", help="task/condition to run, e.g. a1/guarded (repeatable)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -130,6 +131,8 @@ def main():
     for t in tasks:
         for c in t["conditions"]:
             c = dict(c)
+            if args.condition and f"{t['id']}/{c['name']}" not in args.condition:
+                continue
             if args.runs:
                 c["runs"] = args.runs
             if not c.get("enabled", True):

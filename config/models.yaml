@@ -84,24 +84,24 @@ models:
   - { id: deepseek-ai/DeepSeek-V4-Flash-0731, provider: openai_compat,
       label: DeepSeek V4 Flash (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 0.14, price_cached_input_per_mtok: 0.14, price_output_per_mtok: 0.28, tier: economy }
+      price_input_per_mtok: 0.14, price_cached_input_per_mtok: 0.14, price_output_per_mtok: 0.28, tier: economy, stream: true }
 
   - { id: deepseek-ai/DeepSeek-V4-Pro-0813, provider: openai_compat,
       label: DeepSeek V4 Pro (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 1.32, price_cached_input_per_mtok: 1.32, price_output_per_mtok: 3.96, tier: mid }
+      price_input_per_mtok: 1.32, price_cached_input_per_mtok: 1.32, price_output_per_mtok: 3.96, tier: mid, stream: true }
 
   # max_tokens: still truncated 3 curated runs at the 16384 default (it reasons verbosely for a
   # 9B model), which zeroed two of them. Raised here; the runner degrades if the endpoint refuses.
   - { id: Qwen/Qwen3.5-9B, provider: openai_compat,
       label: Qwen 3.5 9B (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1, max_tokens: 32768,
-      price_input_per_mtok: 0.17, price_cached_input_per_mtok: 0.17, price_output_per_mtok: 0.25, tier: economy }
+      price_input_per_mtok: 0.17, price_cached_input_per_mtok: 0.17, price_output_per_mtok: 0.25, tier: economy, stream: true }
 
   - { id: Qwen/Qwen3.7-Max, provider: openai_compat,
       label: Qwen 3.7 Max (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1, stream: true,
-      price_input_per_mtok: 1.25, price_cached_input_per_mtok: 1.25, price_output_per_mtok: 3.75, tier: mid }
+      price_input_per_mtok: 2.5, price_cached_input_per_mtok: 2.5, price_output_per_mtok: 7.5, tier: mid }
   # --- Added after the September 2026 edition. Prices verified 2026-10 at api.together.ai.
   # Endpoint requires streaming.
   - { id: Qwen/Qwen3.8-Flash, provider: openai_compat,
@@ -120,19 +120,19 @@ models:
   - { id: moonshotai/Kimi-K3, provider: openai_compat,
       label: Kimi K3 (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 2.70, price_cached_input_per_mtok: 2.70, price_output_per_mtok: 13.50, tier: frontier }
+      price_input_per_mtok: 3.0, price_cached_input_per_mtok: 3.0, price_output_per_mtok: 15.0, tier: frontier, stream: true }
   - { id: zai-org/GLM-5.3, provider: openai_compat,
       label: GLM-5.3 (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 1.40, price_cached_input_per_mtok: 1.40, price_output_per_mtok: 4.40, tier: mid }
+      price_input_per_mtok: 1.40, price_cached_input_per_mtok: 1.40, price_output_per_mtok: 4.40, tier: mid, stream: true }
   - { id: zai-org/GLM-5.3-Flash, provider: openai_compat,
       label: GLM-5.3 Flash (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 0.15, price_cached_input_per_mtok: 0.15, price_output_per_mtok: 0.50, tier: economy }
+      price_input_per_mtok: 0.15, price_cached_input_per_mtok: 0.15, price_output_per_mtok: 0.50, tier: economy, stream: true }
   - { id: MiniMaxAI/MiniMax-M3, provider: openai_compat,
       label: MiniMax M3 (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 0.30, price_cached_input_per_mtok: 0.30, price_output_per_mtok: 1.20, tier: economy }
+      price_input_per_mtok: 0.30, price_cached_input_per_mtok: 0.30, price_output_per_mtok: 1.20, tier: economy, stream: true }
 
 # Mistral — via api.mistral.ai (OpenAI-compatible). Requires MISTRAL_API_KEY.
 # Mistral does not bill cached tokens separately; price_cached_input_per_mtok = price_input_per_mtok.
@@ -151,15 +151,15 @@ models:
   - { id: mistral-large-2512, provider: openai_compat,
       label: Mistral Large 3 (mistral.ai), api_key_env: MISTRAL_API_KEY,
       base_url: https://api.mistral.ai/v1,
-      price_input_per_mtok: 0.50, price_cached_input_per_mtok: 0.50, price_output_per_mtok: 1.50, tier: mid }
+      price_input_per_mtok: 0.50, price_cached_input_per_mtok: 0.50, price_output_per_mtok: 1.50, tier: mid, stream: true }
   - { id: mistral-large-4-0, provider: openai_compat,
       label: Mistral Large 4 (mistral.ai), api_key_env: MISTRAL_API_KEY,
       base_url: https://api.mistral.ai/v1,
-      price_input_per_mtok: 0.68, price_cached_input_per_mtok: 0.68, price_output_per_mtok: 2.09, tier: mid }
+      price_input_per_mtok: 0.68, price_cached_input_per_mtok: 0.68, price_output_per_mtok: 2.09, tier: mid, stream: true }
   - { id: mistral-small-2603, provider: openai_compat,
       label: Mistral Small 4 (mistral.ai), api_key_env: MISTRAL_API_KEY,
       base_url: https://api.mistral.ai/v1,
-      price_input_per_mtok: 0.15, price_cached_input_per_mtok: 0.15, price_output_per_mtok: 0.60, tier: economy }
+      price_input_per_mtok: 0.15, price_cached_input_per_mtok: 0.15, price_output_per_mtok: 0.60, tier: economy, stream: true }
 
 # Local (Ollama) — uncomment if running models locally:
 #  - { id: llama3.3:70b, provider: openai_compat,

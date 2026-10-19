@@ -415,6 +415,10 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
                 if tc.function:
                     if tc.function.name: e["name"] += tc.function.name
                     if tc.function.arguments: e["arguments"] += tc.function.arguments
+        if finish is None:
+            # A completed stream always carries a finish_reason; without one the connection dropped
+            # mid-response. The message names "connection" so _retry treats it as transient.
+            raise ConnectionError("stream ended without a finish_reason (connection dropped)")
         tool_calls = [{"id": e["id"], "type": "function",
                        "function": {"name": e["name"], "arguments": e["arguments"]}}
                       for e in tcs.values()] if tcs else None

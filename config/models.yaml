@@ -1,4 +1,4 @@
-# Model matrix — 41 models, 12 developers.
+# Model matrix — 48 models, 14 developers.
 # NOTE: `provider` below is the API DIALECT the harness speaks (anthropic/openai/google/xai/
 # openai_compat), not the model's developer and not its host. Open-weight models are served by
 # Together.ai but built by Meta / DeepSeek / Alibaba; see the README model table.
@@ -64,8 +64,12 @@ models:
   - { id: gpt-6-astra,           provider: openai, tier: frontier,    label: GPT-6 Astra,      price_input_per_mtok: 10.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 50.00, reasoning_effort: low }
   - { id: gpt-6-sol,             provider: openai, tier: frontier,    label: GPT-6 Sol,        price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.20, price_output_per_mtok: 10.00, reasoning_effort: low }
   - { id: gpt-6-luna,            provider: openai, tier: economy,     label: GPT-6 Luna,       price_input_per_mtok: 0.10,  price_cached_input_per_mtok: 0.01, price_output_per_mtok: 0.50,  reasoning_effort: low }
+  - { id: gpt-6.1-sol,           provider: openai, tier: frontier,    label: GPT-6.1 Sol,      price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.10, price_output_per_mtok: 10.00, reasoning_effort: low }
   # Gemini 3.8 Flash's price is introductory and doubles on 2027-01-01.
   - { id: gemini-3.8-flash,      provider: google, tier: mid,         label: Gemini 3.8 Flash, price_input_per_mtok: 0.75,  price_cached_input_per_mtok: 0.075, price_output_per_mtok: 3.75, thinking_level: low }
+  # Gemini 4 Argon's price is introductory and rises to $4/$20 on 2026-12-01.
+  - { id: gemini-4-argon,        provider: google, tier: frontier,    label: Gemini 4 Argon,   price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.10, price_output_per_mtok: 10.00, thinking_level: low }
+  - { id: gemini-3.5-flash-lite, provider: google, tier: economy,     label: Gemini 3.5 Flash-Lite, price_input_per_mtok: 0.30, price_cached_input_per_mtok: 0.03, price_output_per_mtok: 2.50, thinking_level: low }
   - { id: grok-4.7,              provider: xai, tier: frontier,       label: Grok 4.7,         price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.50, price_output_per_mtok: 6.00,  reasoning_effort: low }
 
 # Open / self-hosted models via OpenAI-compatible endpoints.
@@ -85,6 +89,10 @@ models:
       label: DeepSeek V4 Flash (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
       price_input_per_mtok: 0.14, price_cached_input_per_mtok: 0.14, price_output_per_mtok: 0.28, tier: economy, stream: true }
+  - { id: deepseek-ai/DeepSeek-V4.1-Flash-1017, provider: openai_compat,
+      label: DeepSeek V4.1 Flash (Together), api_key_env: TOGETHER_API_KEY,
+      base_url: https://api.together.ai/v1,
+      price_input_per_mtok: 0.30, price_cached_input_per_mtok: 0.30, price_output_per_mtok: 1.20, tier: economy, stream: true }
 
   - { id: deepseek-ai/DeepSeek-V4-Pro-0813, provider: openai_compat,
       label: DeepSeek V4 Pro (Together), api_key_env: TOGETHER_API_KEY,
@@ -112,6 +120,10 @@ models:
       label: Muse Glimmer 30B (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
       price_input_per_mtok: 0.35, price_cached_input_per_mtok: 0.35, price_output_per_mtok: 1.50, tier: economy }
+  - { id: meta-models/Muse-Spark-Open-816B-A42B, provider: openai_compat,
+      label: Muse Spark Open (Together), api_key_env: TOGETHER_API_KEY,
+      base_url: https://api.together.ai/v1,
+      price_input_per_mtok: 1.25, price_cached_input_per_mtok: 1.25, price_output_per_mtok: 4.25, tier: mid, stream: true }
   - { id: thinkingmachines/Inkling, provider: openai_compat,
       label: Inkling (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
@@ -133,6 +145,14 @@ models:
       label: MiniMax M3 (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
       price_input_per_mtok: 0.30, price_cached_input_per_mtok: 0.30, price_output_per_mtok: 1.20, tier: economy, stream: true }
+  - { id: reflection/Beam-1.0-501B-A23B, provider: openai_compat,
+      label: Reflection Beam 1.0 (Together), api_key_env: TOGETHER_API_KEY,
+      base_url: https://api.together.ai/v1,
+      price_input_per_mtok: 0.40, price_cached_input_per_mtok: 0.40, price_output_per_mtok: 1.20, tier: mid, stream: true }
+  - { id: nvidia/NVIDIA-Nemotron-3.5-Super-VL, provider: openai_compat,
+      label: Nemotron 3.5 Super (Together), api_key_env: TOGETHER_API_KEY,
+      base_url: https://api.together.ai/v1,
+      price_input_per_mtok: 0.15, price_cached_input_per_mtok: 0.15, price_output_per_mtok: 0.50, tier: mid, stream: true }
 
 # Mistral — via api.mistral.ai (OpenAI-compatible). Requires MISTRAL_API_KEY.
 # Mistral does not bill cached tokens separately; price_cached_input_per_mtok = price_input_per_mtok.

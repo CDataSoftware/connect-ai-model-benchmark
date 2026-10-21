@@ -11,7 +11,8 @@ import json, time, random
 def _retry(fn, tries=6, base=3.0):
     """Retry a provider API call on transient errors (429/5xx/overloaded) with exp backoff + jitter."""
     _T = ("overloaded", "overload", "rate limit", "ratelimit", "rate_limit", "429", "529",
-          "503", "502", "500", "timeout", "timed out", "unavailable", "resource_exhausted", "connection")
+          "503", "502", "500", "timeout", "timed out", "unavailable", "resource_exhausted", "connection",
+          "endpoint_not_ready", "no deployments are ready")
     for i in range(tries):
         try:
             return fn()

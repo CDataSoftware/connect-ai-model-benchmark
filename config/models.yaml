@@ -136,7 +136,7 @@ models:
   - { id: zai-org/GLM-5.3, provider: openai_compat,
       label: GLM-5.3 (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 1.40, price_cached_input_per_mtok: 1.40, price_output_per_mtok: 4.40, tier: mid, stream: true }
+      price_input_per_mtok: 1.40, price_cached_input_per_mtok: 1.40, price_output_per_mtok: 4.40, tier: mid, stream: true, max_tokens: 32768 }
   - { id: zai-org/GLM-5.3-Flash, provider: openai_compat,
       label: GLM-5.3 Flash (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,

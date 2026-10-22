@@ -370,7 +370,7 @@ def run_anthropic(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12, 
 # ---------- Generic OpenAI-compatible (Together AI, Groq, Ollama, vLLM, …) ----------
 def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=12,
                       base_url=None, reasoning_effort=None, temperature=None, use_stream=False,
-                      max_tokens=None):
+                      max_tokens=None, return_reasoning=False):
     """Tool-use loop for any OpenAI-compatible inference endpoint.
 
     Set base_url in models.yaml (e.g. https://api.together.ai/v1, http://localhost:11434/v1).
@@ -397,17 +397,21 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
     t_start = time.perf_counter()
 
+    streamed_reasoning = [""]  # reasoning_content of the latest streamed response
+
     def _call_streaming(base):
         """Stream response, reassemble content + tool calls, return (message_dict, usage, finish_reason)."""
         chunks = list(_retry(lambda: client.chat.completions.create(
             **base, stream=True, stream_options={"include_usage": True})))
         content = ""; thinking = ""; listed = False; tcs = {}; finish = None; usage = None
+        streamed_reasoning[0] = ""
         for chunk in chunks:
             if chunk.usage:
                 usage = chunk.usage
             if not chunk.choices:
                 continue
             d = chunk.choices[0].delta; finish = chunk.choices[0].finish_reason or finish
+            streamed_reasoning[0] += (getattr(d, "model_extra", None) or {}).get("reasoning_content") or ""
             if isinstance(d.content, list):
                 # Mistral reasoning models stream content as a list of {"type": "thinking"|"text"} parts
                 listed = True
@@ -471,8 +475,10 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
             t0 = time.perf_counter(); resp = create(messages); rec["model_time_s"] += time.perf_counter() - t0
             if use_stream:
                 content, tool_calls_raw, u, finish_reason = resp
+                reasoning_text = streamed_reasoning[0]
             else:
                 msg = resp.choices[0].message; finish_reason = resp.choices[0].finish_reason
+                reasoning_text = (getattr(msg, "model_extra", None) or {}).get("reasoning_content")
                 content = msg.content; tool_calls_raw = None; u = resp.usage
                 if msg.tool_calls:
                     tool_calls_raw = [{"id": tc.id, "type": "function",
@@ -487,7 +493,11 @@ def run_openai_compat(model, mcp, prompt, condition, run_idx, api_key, turn_cap=
             rec["stop_reason"] = finish_reason
             if not tool_calls_raw:
                 rec["final_answer"], th = _text_and_thinking(content); rec["thinking_chars"] += th; break
-            messages.append({"role": "assistant", "content": content, "tool_calls": tool_calls_raw})
+            turn_msg = {"role": "assistant", "content": content, "tool_calls": tool_calls_raw}
+            if return_reasoning and reasoning_text:
+                # Some chat templates (Reflection Beam) reject an assistant turn without its reasoning.
+                turn_msg["reasoning_content"] = reasoning_text
+            messages.append(turn_msg)
             for tc in tool_calls_raw:
                 rec["tool_calls"] += 1
                 try:

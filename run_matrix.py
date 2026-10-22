@@ -101,6 +101,46 @@ def score_run(task, rec, queue_rows):
 PROVIDER_REFUSAL = re.compile(r"inappropriate content|DataInspectionFailed", re.I)
 
 
+class StubMCP:
+    """Stands in for the MCP client in the model check: one tool, canned rows, nothing shared touched."""
+    TOOL = {"name": "get_accounts", "description": "List accounts with a given health status.",
+            "inputSchema": {"type": "object", "required": ["status"], "properties": {
+                "status": {"type": "string", "description": "CRITICAL, AT_RISK, MONITOR or HEALTHY"}}}}
+
+    def list_tools(self):
+        return [self.TOOL]
+
+    def call_tool(self, name, arguments):
+        return {"content": [{"type": "text", "text": "AccountName,Health_Score\nAcme Corp,32\nBeacon Ltd,38"}]}
+
+    result_text = staticmethod(mcp_client.MCPClient.result_text)
+
+
+CHECK_PROMPT = ("Use the get_accounts tool to find accounts with CRITICAL status, then answer with "
+                "their names and health scores as a markdown table.")
+
+
+def check_model(m):
+    """One short tool-use exchange through the model's real runner: (ok, detail). Catches a model that
+    can't complete a turn after a tool result before the matrix spends on it."""
+    keyenv = m.get("api_key_env") or KEYS.get(m["provider"])
+    if keyenv and not os.environ.get(keyenv):
+        return False, f"no API key ({keyenv})"
+    api_key = os.environ.get(keyenv, "nokey") if keyenv else "nokey"
+    try:
+        rec = DISPATCH[m["provider"]](m["id"], StubMCP(), CHECK_PROMPT, "model_check", 0, api_key,
+                                      turn_cap=4, temperature=TEMPERATURE, **kwargs_for(m))
+    except Exception as e:
+        return False, f"{type(e).__name__}: {' '.join(str(e).split())[:200]}"
+    if rec.get("error"):
+        return False, " ".join(str(rec["error"]).split())[:200]
+    if not rec.get("tool_calls"):
+        return False, "never called the tool"
+    if "acme" not in (rec.get("final_answer") or "").lower():
+        return False, f"no final answer using the tool result (stop: {rec.get('stop_reason')})"
+    return True, f"{rec['tool_calls']} tool call(s), {rec['turns']} turns"
+
+
 def tag_for(task, model_id, cond_name, run_idx):
     safe_id = model_id.replace("/", "--")  # Together model IDs contain '/' which breaks file paths
     if task.get("legacy_tag"):   # R1's already-completed runs keep their original filenames
@@ -115,6 +155,8 @@ def main():
     ap.add_argument("--out-dir", help="write run JSON here instead of results/matrix")
     ap.add_argument("--condition", action="append", help="task/condition to run, e.g. a1/guarded (repeatable)")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--skip-model-check", action="store_true",
+                    help="skip the short tool-use check each model with pending runs gets before the matrix")
     args = ap.parse_args()
 
     results_dir = os.path.join(HERE, args.out_dir) if args.out_dir else RESULTS
@@ -164,6 +206,17 @@ def main():
     for t, c in plan:
         print(f"   {t['id']:<4} {c['name']:<15} runs={c['runs']:<3} cap={c.get('turn_cap', DEFAULT_TURN_CAP):<3} "
               f"scoring={t['scoring']:<10} golden={len(t['golden'])} rows")
+    pending = [m for m in models if any(not done(os.path.join(results_dir, tag_for(t, m["id"], c["name"], r) + ".json"))
+                                        for t, c in plan for r in range(1, c["runs"] + 1))]
+    if pending and not args.skip_model_check:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            checks = list(ex.map(check_model, pending))
+        failed = [(m, d) for m, (ok, d) in zip(pending, checks) if not ok]
+        for m, (ok, d) in zip(pending, checks):
+            print(f"{'OK ' if ok else '!! '} model check {m['label']}: {d}", flush=True)
+        if failed:
+            raise SystemExit(f"!! {len(failed)} model(s) failed the tool-use check -- fix or drop them before running")
     if args.dry_run:
         return
 

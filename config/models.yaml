@@ -1,4 +1,4 @@
-# Model matrix — 51 models, 14 developers.
+# Model matrix — 52 models, 14 developers.
 # NOTE: `provider` below is the API DIALECT the harness speaks (anthropic/openai/google/xai/
 # openai_compat), not the model's developer and not its host. Open-weight models are served by
 # Together.ai but built by Meta / DeepSeek / Alibaba; see the README model table.
@@ -61,6 +61,7 @@ models:
   - { id: claude-sonnet-5-5,     provider: anthropic, tier: frontier, label: Sonnet 5.5,       price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.10, price_output_per_mtok: 10.00, thinking_budget: 2048 }
   - { id: claude-opus-5-5,       provider: anthropic, tier: frontier, label: Opus 5.5,         price_input_per_mtok: 4.00,  price_cached_input_per_mtok: 0.20, price_output_per_mtok: 20.00, thinking_budget: 2048 }
   - { id: claude-fable-5-1,      provider: anthropic, tier: frontier, label: Fable 5.1,        price_input_per_mtok: 10.00, price_cached_input_per_mtok: 0.25, price_output_per_mtok: 50.00, thinking_budget: 2048 }
+  - { id: claude-fable-5-2,      provider: anthropic, tier: frontier, label: Fable 5.2,        price_input_per_mtok: 8.00, price_cached_input_per_mtok: 0.20, price_output_per_mtok: 40.00, thinking_budget: 2048 }
   - { id: gpt-6-astra,           provider: openai, tier: frontier,    label: GPT-6 Astra,      price_input_per_mtok: 10.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 50.00, reasoning_effort: low }
   - { id: gpt-6-sol,             provider: openai, tier: frontier,    label: GPT-6 Sol,        price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.20, price_output_per_mtok: 10.00, reasoning_effort: low }
   - { id: gpt-6-luna,            provider: openai, tier: economy,     label: GPT-6 Luna,       price_input_per_mtok: 0.10,  price_cached_input_per_mtok: 0.01, price_output_per_mtok: 0.50,  reasoning_effort: low }

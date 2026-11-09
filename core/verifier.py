@@ -12,6 +12,7 @@ automated here instead. That matters at this scale: A1 is ~150 runs across 3 con
 manual reset between each would make the matrix un-runnable unattended.
 """
 import os
+import re
 import time
 
 import requests
@@ -47,6 +48,20 @@ class VerifierError(RuntimeError):
     pass
 
 
+def workspace_id():
+    """The Connect AI workspace the toolkits under test live in. The query API reads the account's
+    default scope unless told otherwise, so REVIEW_QUEUE must be read in the same workspace the
+    models write to. CDATA_WORKSPACE wins; otherwise it comes from the MCP_*_URL toolkit URLs."""
+    if os.environ.get("CDATA_WORKSPACE"):
+        return os.environ["CDATA_WORKSPACE"]
+    ids = {m.group(1) for k, v in os.environ.items() if k.startswith("MCP_") and k.endswith("_URL")
+           for m in [re.search(r"/workspace/([^/]+)/", v)] if m}
+    if len(ids) > 1:
+        raise VerifierError(f"toolkit URLs span several workspaces ({', '.join(sorted(ids))}); "
+                            f"set CDATA_WORKSPACE to the one holding REVIEW_QUEUE")
+    return ids.pop() if ids else None
+
+
 class ReviewQueue:
     """Read/reset the write-back target table over the harness's own credentials."""
 
@@ -55,6 +70,8 @@ class ReviewQueue:
                      token or os.environ["CDATA_ACCESS_TOKEN"])
         self.table = table or os.environ.get("REVIEW_QUEUE_TABLE", DEFAULT_TABLE)
         self.api_url = api_url or os.environ.get("CDATA_QUERY_API", DEFAULT_API)
+        self.workspace = workspace_id()
+        self.headers = {"x-cdata-workspace": self.workspace} if self.workspace else {}
         self.timeout = timeout
 
     def _query(self, sql, tries=5):
@@ -69,7 +86,7 @@ class ReviewQueue:
         for attempt in range(tries):
             try:
                 r = requests.post(self.api_url, auth=self.auth, json={"query": sql},
-                                  timeout=self.timeout)
+                                  headers=self.headers, timeout=self.timeout)
                 # gateway errors (502/503/504) are as transient as a dropped connection
                 if r.status_code in (502, 503, 504) and attempt < tries - 1:
                     last = f"HTTP {r.status_code}"

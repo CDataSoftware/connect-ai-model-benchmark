@@ -141,6 +141,22 @@ def check_model(m):
     return True, f"{rec['tool_calls']} tool call(s), {rec['turns']} turns"
 
 
+def probe_condition(url, probe):
+    """Make the condition's read-only probe call through its endpoint: (ok, detail). Catches a source
+    the endpoint can't reach (an expired OAuth token, a renamed connection) before models run against
+    it and answer from an error message."""
+    try:
+        mcp = mcp_client.MCPClient(url, EMAIL, TOKEN)
+        mcp.initialize()
+        res = mcp.call_tool(probe["tool"], probe.get("args", {}))
+    except Exception as e:
+        return False, f"{type(e).__name__}: {' '.join(str(e).split())[:300]}"
+    text = mcp_client.MCPClient.result_text(res) or ""
+    if (isinstance(res, dict) and (res.get("error") or res.get("isError"))) or len(text) < probe.get("min_chars", 1):
+        return False, " ".join(text.split())[:300] or "empty result"
+    return True, f"{probe['tool']} returned {len(text)} chars"
+
+
 def tag_for(task, model_id, cond_name, run_idx):
     safe_id = model_id.replace("/", "--")  # Together model IDs contain '/' which breaks file paths
     if task.get("legacy_tag"):   # R1's already-completed runs keep their original filenames
@@ -200,6 +216,16 @@ def main():
             print(f"OK  source-table baseline: {src_baseline}")
         except verifier.VerifierError as e:
             raise SystemExit(f"!! verifier preflight failed: {e}")
+
+    probe_failed = []
+    for t, c in plan:
+        if c.get("probe"):
+            ok, detail = probe_condition(os.environ[c["mcp_url_env"]], c["probe"])
+            print(f"{'OK ' if ok else '!! '} data probe {t['id']}/{c['name']}: {detail}", flush=True)
+            if not ok:
+                probe_failed.append(f"{t['id']}/{c['name']}")
+    if probe_failed:
+        raise SystemExit(f"!! data probe failed for {', '.join(probe_failed)} -- fix the data sources before running")
 
     total = sum(c["runs"] for t, c in plan) * len(models)
     print(f"\nPlan: {len(models)} models x {len(plan)} task-conditions = {total} runs")

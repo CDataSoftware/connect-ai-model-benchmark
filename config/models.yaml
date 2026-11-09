@@ -199,6 +199,8 @@ models:
 #   scoring: answer        -> scorer.score()      (R1: health + eligibility)
 #            answer_r2     -> scorer.score_r2()   (R2: health + usage-trend composition)
 #            action        -> scorer.score_action() graded on REVIEW_QUEUE's end state, not prose
+# probe (optional, per condition): a read-only tool call made through the condition's endpoint before
+# any model runs; the matrix stops if it errors or returns fewer than min_chars characters.
 # turn_cap is per-condition: curated toolkits converge in ~3 turns, but raw federation needs far
 # more headroom (baseline previously strangled at 12 - most runs never left schema discovery).
 tasks:
@@ -211,7 +213,8 @@ tasks:
     legacy_tag: true
     conditions:
       - { name: baseline,  mcp_url_env: MCP_BASELINE_URL,  runs: 3,  turn_cap: 40 }
-      - { name: optimized, mcp_url_env: MCP_OPTIMIZED_URL, runs: 10, turn_cap: 12 }
+      - { name: optimized, mcp_url_env: MCP_OPTIMIZED_URL, runs: 10, turn_cap: 12,
+          probe: { tool: get_accounts_by_health_status, args: { priority: High, status: CRITICAL }, min_chars: 1000 } }
 
   - id: r2
     prompt_file: config/prompt_r2.txt
@@ -221,7 +224,8 @@ tasks:
       # R2-baseline reuses the baseline toolkit as-is: it already exposes all 6 raw tables
       # including DIM_ACCOUNT + TELEMETRY_EVENTS, which is everything this task needs.
       - { name: baseline,  mcp_url_env: MCP_BASELINE_URL, runs: 5, turn_cap: 40 }
-      - { name: optimized, mcp_url_env: MCP_R2_OPTIMIZED_URL,  runs: 8, turn_cap: 12 }
+      - { name: optimized, mcp_url_env: MCP_R2_OPTIMIZED_URL,  runs: 8, turn_cap: 12,
+          probe: { tool: get_accounts_by_health_status, args: { priority: High, status: CRITICAL }, min_chars: 1000 } }
 
   - id: a1
     prompt_file: config/prompt_a1.txt
@@ -242,7 +246,8 @@ tasks:
       # destination name (REASON) has no exact source match (ELIGIBILITY_REASON) instead of
       # erroring. Fixed with `AS REASON`; full 5-point checklist re-verified against the live MCP
       # tool afterward (eligible/dedupe/ineligible/wrong-reason/second-account all correct).
-      - { name: guarded, mcp_url_env: MCP_A1_GUARDED_URL, runs: 8, turn_cap: 12 }
+      - { name: guarded, mcp_url_env: MCP_A1_GUARDED_URL, runs: 8, turn_cap: 12,
+          probe: { tool: get_accounts_by_health_status, args: { priority: High, status: CRITICAL }, min_chars: 1000 } }
 
 # temperature: applied where the provider allows it. Reasoning-on OpenAI and thinking-on
 # Anthropic force the provider default (~1.0); per-run temperature_applied records what happened.

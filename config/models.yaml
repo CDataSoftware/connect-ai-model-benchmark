@@ -1,4 +1,4 @@
-# Model matrix — 52 models, 14 developers.
+# Model matrix — 51 models, 14 developers.
 # NOTE: `provider` below is the API DIALECT the harness speaks (anthropic/openai/google/xai/
 # openai_compat), not the model's developer and not its host. Open-weight models are served by
 # Together.ai but built by Meta / DeepSeek / Alibaba; see the README model table.
@@ -117,10 +117,6 @@ models:
       label: Qwen 3.8 Flash (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1, stream: true,
       price_input_per_mtok: 0.15, price_cached_input_per_mtok: 0.15, price_output_per_mtok: 0.47, tier: economy }
-  - { id: Qwen/Qwen3.8-2.4T-A95B, provider: openai_compat,
-      label: Qwen 3.8 Max (Together), api_key_env: TOGETHER_API_KEY,
-      base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 2.00, price_cached_input_per_mtok: 2.00, price_output_per_mtok: 6.00, tier: mid, stream: true }
   - { id: meta-models/Muse-Glimmer-30B, provider: openai_compat,
       label: Muse Glimmer 30B (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,

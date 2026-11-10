@@ -96,6 +96,10 @@ def parse_answer(text):
     ci_elig = col("eligib")
     ci_reason = col("reason")
     ci_trend = col("trend", "declin", "usage direction", "usage change")
+    # An answer can carry two trend-like columns, e.g. "Usage Trend (Recent vs. Prior)" holding the
+    # counts and "Trend Label" holding the label; each row's label is read from whichever has one.
+    ci_trends = [i for i, h in enumerate(header)
+                 if any(k in h for k in ("trend", "declin", "usage direction", "usage change"))]
     # session columns: "recent"/"current" vs "prior"/"previous" activity (R2 asks for both)
     ci_cur = col("cur90", "sessions_cur", "recent sessions", "recent activity", "current period", "recent period")
     ci_prev = col("prev90", "sessions_prev", "prior sessions", "prior activity", "prior period", "previous period")
@@ -135,7 +139,7 @@ def parse_answer(text):
             "score": _num(cell(cells, ci_score)),
             "sla": cell(cells, ci_sla),
             "tickets": cell(cells, ci_tickets),
-            "trend": _trend(trend_cell),
+            "trend": next((t for t in (_trend(cell(cells, i)) for i in ci_trends) if t), None),
             "sess_cur": sess_cur,
             "sess_prev": sess_prev,
             "raw": ln,

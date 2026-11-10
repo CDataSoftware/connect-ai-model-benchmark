@@ -68,8 +68,9 @@ models:
   - { id: gpt-6.1-sol,           provider: openai, tier: frontier,    label: GPT-6.1 Sol,      price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.10, price_output_per_mtok: 10.00, reasoning_effort: low }
   # Gemini 3.8 Flash's price is introductory and doubles on 2027-01-01.
   - { id: gemini-3.8-flash,      provider: google, tier: mid,         label: Gemini 3.8 Flash, price_input_per_mtok: 0.75,  price_cached_input_per_mtok: 0.075, price_output_per_mtok: 3.75, thinking_level: low }
-  # Gemini 4 Argon's price is introductory and rises to $4/$20 on 2026-12-01.
+  # Gemini 4 Argon's and Carbon's prices are introductory and rise to $4/Add.20/$20 on 2026-12-01.
   - { id: gemini-4-argon,        provider: google, tier: frontier,    label: Gemini 4 Argon,   price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.10, price_output_per_mtok: 10.00, thinking_level: low }
+  - { id: gemini-4-carbon,       provider: google, tier: frontier,    label: Gemini 4 Carbon,  price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.10, price_output_per_mtok: 10.00, thinking_level: low }
   - { id: gemini-3.5-flash-lite, provider: google, tier: economy,     label: Gemini 3.5 Flash-Lite, price_input_per_mtok: 0.30, price_cached_input_per_mtok: 0.03, price_output_per_mtok: 2.50, thinking_level: low }
   - { id: grok-4.7,              provider: xai, tier: frontier,       label: Grok 4.7,         price_input_per_mtok: 2.00,  price_cached_input_per_mtok: 0.50, price_output_per_mtok: 6.00,  reasoning_effort: low }
 

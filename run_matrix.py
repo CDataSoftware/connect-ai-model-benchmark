@@ -236,6 +236,9 @@ def main():
                                         for t, c in plan for r in range(1, c["runs"] + 1))]
     if pending and not args.skip_model_check:
         from concurrent.futures import ThreadPoolExecutor
+        # The OpenAI SDK loads these modules on first use; load them here, before the check
+        # threads start, because concurrent first imports can deadlock.
+        import openai.resources.chat, openai.resources.responses  # noqa: F401
         with ThreadPoolExecutor(max_workers=8) as ex:
             checks = list(ex.map(check_model, pending))
         failed = [(m, d) for m, (ok, d) in zip(pending, checks) if not ok]

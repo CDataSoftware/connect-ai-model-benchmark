@@ -129,7 +129,7 @@ models:
   - { id: thinkingmachines/Inkling, provider: openai_compat,
       label: Inkling (Together), api_key_env: TOGETHER_API_KEY,
       base_url: https://api.together.ai/v1,
-      price_input_per_mtok: 1.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 4.05, tier: frontier }
+      price_input_per_mtok: 1.00, price_cached_input_per_mtok: 1.00, price_output_per_mtok: 4.05, tier: frontier, max_tokens: 32768 }
   # MiniMax-M2.7 is listed by Together but not serverless, so it can't be run.
   - { id: moonshotai/Kimi-K3, provider: openai_compat,
       label: Kimi K3 (Together), api_key_env: TOGETHER_API_KEY,

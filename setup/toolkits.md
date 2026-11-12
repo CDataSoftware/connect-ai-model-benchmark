@@ -130,16 +130,22 @@ GROUP BY SLA_Level, Health_Status
 ```
 
 ### `check_review_eligibility`
-> Checks whether an account qualifies for manual review based on its current
-> health status.
+> Checks whether an account qualifies for manual review. Returns the eligibility
+> flag and reason.
 
 Parameters: `account_id` (string)
 
+An account is eligible only when it is CRITICAL and meets an escalation trigger, the
+same rule as the view's `Review_Eligible` column and the guarded insert.
+
 ```sql
-SELECT AccountId, Health_Status,
-  CASE WHEN Health_Status = 'CRITICAL' THEN 'ELIGIBLE'
-       ELSE 'NOT ELIGIBLE'
-  END AS ReviewEligibility
+SELECT AccountId, AccountName, Health_Status,
+  CASE WHEN Health_Status = 'CRITICAL' AND Review_Eligible = 'ELIGIBLE'
+       THEN 'ELIGIBLE' ELSE 'NOT ELIGIBLE'
+  END AS ReviewEligibility,
+  CASE WHEN Health_Status = 'CRITICAL' THEN Eligibility_Reason
+       ELSE 'Health status is not CRITICAL'
+  END AS Eligibility_Reason
 FROM [account-health-write].[Root].[account_health_score]
 WHERE AccountId = @account_id
 ```
